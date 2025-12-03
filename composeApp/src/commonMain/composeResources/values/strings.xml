@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">WaveReader</string>
+    <string name="titlename">WaveReader</string>
+    <string name="informationbuttondescr">Information</string>
+    <string name="info_sensor_header">Using sensors to record wave data.</string>
+    <string name="info_sensor_body">WaveReader uses your phone’s built-in sensors — the accelerometer, gyroscope, and magnetometer — to measure ocean wave motion in real time. Just hold your phone steady near the surface of the water, and press record to start collecting data.</string>
+    <string name="info_api_header">Using location to get waves data.</string>
+    <string name="info_api_body">WaveReader also lets you look up ocean conditions using forecast data. You can search by location on the map or by place name, and view upcoming wave height, direction, and period based on the Marine Weather API.</string>
+    <string name="dismiss_text">Dismiss</string>
+    <string name="latitude_longitude">Latitude: %1$s, Longitude: %2$s</string>
+    <string name="fetch_wave_data_button">Fetch Wave Data</string>
+    <string name="enter_zip_code_label">Enter Zip Code</string>
+    <string name="search_icon_descr">Search Icon</string>
+    <string name="clear_text_descr">Clear Text</string>
+    <string name="zip_code_error">Please enter a valid 5 digit zip code</string>
+    <string name="error_image_descr">Error</string>
+    <string name="loading_failed_text">Loading Failed</string>
+    <string name="loading_image_descr">Loading...</string>
+    <string name="pause_sensors_button">Pause Sensors</string>
+    <string name="record_button">Record</string>
+    <string name="calculating_wave_height_title">Calculating Wave Height</string>
+    <string name="calculating_wave_height_body">Wave height is estimated using the vertical acceleration of the device. The app applies a Hanning window to the signal to reduce noise, then uses a Fast Fourier Transform (FFT) to calculate the wave energy spectrum. From this, the significant wave height is derived using standard buoy methods.</string>
+    <string name="calculating_wave_period_title">Calculating Wave Period</string>
+    <string name="calculating_wave_period_body">The wave period represents how frequently waves occur. Using the frequency spectrum, the app calculates spectral moments and derives both the average and zero-crossing wave periods to show overall trends and stability in wave timing.</string>
+    <string name="calculating_wave_direction_title">Calculating Wave Direction</string>
+    <string name="calculating_wave_direction_body">To determine wave direction, the app calculates the phase difference between horizontal acceleration axes using FFT. This estimate is stabilized using gyroscope and magnetometer data to align the wave direction with magnetic north.</string>
+</resources>
