@@ -3,6 +3,16 @@
 <plist version="1.0">
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
+    <true/>
+
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>WaveReader needs your location to save wave measurements</string>
+
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>WaveReader needs your location to measure waves and save session locations</string>
+
+    <key>NSMotionUsageDescription</key>
+    <string>WaveReader needs motion sensors to measure wave height, period, and direction</string>
+
 </dict>
 </plist>

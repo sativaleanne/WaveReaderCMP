@@ -1,4 +1,3 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
@@ -17,14 +16,17 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_17)
         }
     }
-    
+
+
     listOf(
+        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
-            baseName = "ComposeApp"
+            baseName = "composeApp"
             isStatic = true
+
         }
     }
 
@@ -57,10 +59,6 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.ktor.client.logging)
-
-            implementation(libs.gitlive.firebase.auth)
-            implementation(libs.gitlive.firebase.firestore)
-            implementation(libs.firebase.common)
 
             implementation(libs.kotlinx.datetime)
         }
@@ -146,4 +144,5 @@ android {
 dependencies {
     debugImplementation(compose.uiTooling)
 }
+
 

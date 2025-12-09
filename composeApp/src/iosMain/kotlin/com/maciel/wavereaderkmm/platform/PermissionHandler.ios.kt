@@ -1,6 +1,12 @@
 package com.maciel.wavereaderkmm.platform
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
+import platform.CoreLocation.*
 
 /**
  * iOS implementation of RequestLocationPermission
@@ -13,8 +19,26 @@ actual fun RequestLocationPermission(
     onPermissionDenied: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    // TODO: Implement iOS location permission
-    // For now, just show content (permission assumed granted)
+    var permissionStatus by remember {
+        mutableStateOf(CLLocationManager.authorizationStatus())
+    }
+
+    LaunchedEffect(Unit) {
+        when (permissionStatus) {
+            kCLAuthorizationStatusAuthorizedWhenInUse,
+            kCLAuthorizationStatusAuthorizedAlways -> {
+                onPermissionGranted()
+            }
+            kCLAuthorizationStatusDenied,
+            kCLAuthorizationStatusRestricted -> {
+                onPermissionDenied()
+            }
+            kCLAuthorizationStatusNotDetermined -> {
+                val manager = CLLocationManager()
+                manager.requestWhenInUseAuthorization()
+            }
+        }
+    }
     content()
 }
 
@@ -26,83 +50,8 @@ actual fun RequestLocationPermission(
 actual object LocationPermissionChecker {
     @Composable
     actual fun isGrantedComposable(): Boolean {
-        // TODO: Check iOS location permission status
-        // For now, return false (no permission)
-        return false
+        val status = CLLocationManager.authorizationStatus()
+        return status == kCLAuthorizationStatusAuthorizedWhenInUse ||
+                status == kCLAuthorizationStatusAuthorizedAlways
     }
 }
-
-/*
- * iOS IMPLEMENTATION GUIDE:
- * =========================
- *
- * To implement on iOS, you'll need:
- *
- * 1. Import CoreLocation
- * import platform.CoreLocation.*
- *
- * 2. Check authorization status:
- * val status = CLLocationManager.authorizationStatus()
- * when (status) {
- *     kCLAuthorizationStatusAuthorizedWhenInUse,
- *     kCLAuthorizationStatusAuthorizedAlways -> {
- *         // Permission granted
- *         onPermissionGranted()
- *     }
- *     kCLAuthorizationStatusDenied,
- *     kCLAuthorizationStatusRestricted -> {
- *         // Permission denied
- *         onPermissionDenied()
- *     }
- *     kCLAuthorizationStatusNotDetermined -> {
- *         // Request permission
- *         val locationManager = CLLocationManager()
- *         locationManager.requestWhenInUseAuthorization()
- *     }
- * }
- *
- * 3. Add to Info.plist:
- * <key>NSLocationWhenInUseUsageDescription</key>
- * <string>We need your location to show wave data near you</string>
- *
- * 4. Full implementation example:
- *
- * @Composable
- * actual fun RequestLocationPermission(
- *     onPermissionGranted: () -> Unit,
- *     onPermissionDenied: () -> Unit,
- *     content: @Composable () -> Unit
- * ) {
- *     var permissionStatus by remember {
- *         mutableStateOf(CLLocationManager.authorizationStatus())
- *     }
- *
- *     LaunchedEffect(Unit) {
- *         when (permissionStatus) {
- *             kCLAuthorizationStatusAuthorizedWhenInUse,
- *             kCLAuthorizationStatusAuthorizedAlways -> {
- *                 onPermissionGranted()
- *             }
- *             kCLAuthorizationStatusDenied,
- *             kCLAuthorizationStatusRestricted -> {
- *                 onPermissionDenied()
- *             }
- *             kCLAuthorizationStatusNotDetermined -> {
- *                 val manager = CLLocationManager()
- *                 manager.requestWhenInUseAuthorization()
- *             }
- *         }
- *     }
- *
- *     content()
- * }
- *
- * actual object LocationPermissionChecker {
- *     @Composable
- *     actual fun isGrantedComposable(): Boolean {
- *         val status = CLLocationManager.authorizationStatus()
- *         return status == kCLAuthorizationStatusAuthorizedWhenInUse ||
- *                status == kCLAuthorizationStatusAuthorizedAlways
- *     }
- * }
- */
