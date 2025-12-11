@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B223C1E2EE7C5EC00997FCC /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 0B223C1D2EE7C5EC00997FCC /* FirebaseAuth */; };
+		0B223C202EE7C5F300997FCC /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 0B223C1F2EE7C5F300997FCC /* FirebaseFirestore */; };
+		0B223C222EE7C61800997FCC /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0B223C212EE7C61800997FCC /* FirebaseCore */; };
 		0BD1027C2EE13BB900EA2A64 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 0BD1027B2EE13BB900EA2A64 /* FirebaseAnalytics */; };
 /* End PBXBuildFile section */
 
@@ -46,6 +49,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				0BD1027C2EE13BB900EA2A64 /* FirebaseAnalytics in Frameworks */,
+				0B223C1E2EE7C5EC00997FCC /* FirebaseAuth in Frameworks */,
+				0B223C222EE7C61800997FCC /* FirebaseCore in Frameworks */,
+				0B223C202EE7C5F300997FCC /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -60,11 +66,19 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		0B223C1C2EE7C5EC00997FCC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		CCEA0C1385ED9BBB4ACB814C = {
 			isa = PBXGroup;
 			children = (
 				B00E75FAE6E1BFB5FE3ADC74 /* Configuration */,
 				66FD05F6C1F79D8469D02876 /* iosApp */,
+				0B223C1C2EE7C5EC00997FCC /* Frameworks */,
 				00D9A427B2829CB4B6218618 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -91,6 +105,9 @@
 			name = iosApp;
 			packageProductDependencies = (
 				0BD1027B2EE13BB900EA2A64 /* FirebaseAnalytics */,
+				0B223C1D2EE7C5EC00997FCC /* FirebaseAuth */,
+				0B223C1F2EE7C5F300997FCC /* FirebaseFirestore */,
+				0B223C212EE7C61800997FCC /* FirebaseCore */,
 			);
 			productName = iosApp;
 			productReference = 230D502807205A282893E4AF /* WaveReaderKMM.app */;
@@ -190,6 +207,9 @@
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = WaveReader;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "WaveReader needs your location to measure waves and save session locations";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "WaveReader needs your location to save wave measurements";
+				INFOPLIST_KEY_NSMotionUsageDescription = "WaveReader needs motion sensors to measure wave height, period, and direction";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -200,7 +220,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.maciel.wavereaderkmm.iosApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maciel.wavereaderkmm;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -347,6 +367,9 @@
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = WaveReader;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "WaveReader needs your location to measure waves and save session locations";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "WaveReader needs your location to save wave measurements";
+				INFOPLIST_KEY_NSMotionUsageDescription = "WaveReader needs motion sensors to measure wave height, period, and direction";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -357,7 +380,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.maciel.wavereaderkmm.iosApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maciel.wavereaderkmm;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -399,6 +422,21 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0B223C1D2EE7C5EC00997FCC /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BD1027A2EE13BB900EA2A64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		0B223C1F2EE7C5F300997FCC /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BD1027A2EE13BB900EA2A64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		0B223C212EE7C61800997FCC /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0BD1027A2EE13BB900EA2A64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
 		0BD1027B2EE13BB900EA2A64 /* FirebaseAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 0BD1027A2EE13BB900EA2A64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

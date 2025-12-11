@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -112,8 +113,8 @@ fun HistoryScreen(
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxWidth(),
+                .fillMaxSize()
+                .padding(innerPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Selection mode top bar OR normal buttons
@@ -185,7 +186,7 @@ fun HistoryScreen(
                     )
                 }
                 else -> {
-                    LazyColumn(modifier = Modifier.fillMaxHeight(0.9f)) {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
                         items(
                             items = historyData,
                             key = { it.id }

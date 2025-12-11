@@ -115,7 +115,6 @@ fun RecordDataScreen(
 @Composable
 fun ShowSensorErrorScreen() {
     Column(
-        modifier = Modifier.verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Unable to use this feature due to missing sensors!")

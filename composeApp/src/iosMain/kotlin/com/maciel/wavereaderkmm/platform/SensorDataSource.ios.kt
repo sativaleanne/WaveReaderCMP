@@ -30,7 +30,7 @@ actual class SensorDataSource {
      * Check if required sensors are available
      */
     actual fun areSensorsAvailable(): Boolean {
-        return motionManager.deviceMotionAvailable
+        return motionManager.isDeviceMotionAvailable()
     }
 
     /**
