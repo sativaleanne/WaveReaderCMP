@@ -7,7 +7,9 @@ enum class SortOrder {
 }
 
 data class HistoryFilterState(
-    val locationQuery: String = "",
+    val locationQuery: String = "", // For display only
+    val searchLatLng: Pair<Double, Double>? = null, // Actual filter - always use coordinates
+    val radiusMiles: Double = 25.0,
     val startDateMillis: Long? = null,
     val endDateMillis: Long? = null,
     val sortOrder: SortOrder = SortOrder.DATE_DESCENDING

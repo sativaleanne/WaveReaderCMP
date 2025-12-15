@@ -88,18 +88,21 @@ class WaveDataProcessor {
             val (m0, m1, m2) = calculateSpectralMoments(spectrum, samplingRate)
 
             // Get spectral and zero-crossing wave periods
-            val (sigWaveHeight, avePeriod, _) = computeWaveMetricsFromSpectrum(m0, m1, m2)
-            val zeroCrossPeriod = estimateZeroCrossingPeriod(segment, samplingRate)
+            val (sigWaveHeight, avePeriod, spectralZeroCrossPeriod) = computeWaveMetricsFromSpectrum(m0, m1, m2)
+            val measuredZeroCrossPeriod = estimateZeroCrossingPeriod(segment, samplingRate)
 
             // Stability
-            val blendedPeriod = if (zeroCrossPeriod.isFinite()) {
-                (avePeriod + zeroCrossPeriod) / 2f
-            } else avePeriod
+//            val finalPeriod = if (measuredZeroCrossPeriod.isFinite()) {
+//                (spectralZeroCrossPeriod + measuredZeroCrossPeriod) / 2f
+//            } else {
+//                spectralZeroCrossPeriod
+//            }
+            val finalPeriod = spectralZeroCrossPeriod
 
             // Only valid stuff
-            if (sigWaveHeight.isFinite() && blendedPeriod.isFinite()) {
+            if (sigWaveHeight.isFinite() && finalPeriod.isFinite()) {
                 heights.add(sigWaveHeight)
-                periods.add(blendedPeriod)
+                periods.add(finalPeriod)
             }
         }
 

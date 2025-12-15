@@ -2,6 +2,7 @@ package com.maciel.wavereaderkmm.utils
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -77,8 +78,8 @@ fun formatDate(millis: Long): String {
     val instant = Instant.fromEpochMilliseconds(millis)
     val dateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
 
-    val month = dateTime.monthNumber.toString().padStart(2, '0')
-    val day = dateTime.dayOfMonth.toString().padStart(2, '0')
+    val month = dateTime.month.number.toString().padStart(2, '0')
+    val day = dateTime.day.toString().padStart(2, '0')
     val year = dateTime.year
 
     return "$month/$day/$year"
@@ -100,8 +101,8 @@ fun formatDateTime(millis: Long): String {
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     )
 
-    val month = monthNames[dateTime.monthNumber - 1]
-    val day = dateTime.dayOfMonth.toString().padStart(2, '0')
+    val month = monthNames[dateTime.month.number - 1]
+    val day = dateTime.day.toString().padStart(2, '0')
     val year = dateTime.year
     val hour = dateTime.hour.toString().padStart(2, '0')
     val minute = dateTime.minute.toString().padStart(2, '0')
@@ -130,8 +131,8 @@ fun generateFileTimestamp(): String {
     val dateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
 
     val year = dateTime.year
-    val month = dateTime.monthNumber.toString().padStart(2, '0')
-    val day = dateTime.dayOfMonth.toString().padStart(2, '0')
+    val month = dateTime.month.number.toString().padStart(2, '0')
+    val day = dateTime.day.toString().padStart(2, '0')
     val hour = dateTime.hour.toString().padStart(2, '0')
     val minute = dateTime.minute.toString().padStart(2, '0')
     val second = dateTime.second.toString().padStart(2, '0')

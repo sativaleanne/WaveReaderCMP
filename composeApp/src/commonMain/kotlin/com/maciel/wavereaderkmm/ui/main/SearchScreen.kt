@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -43,8 +46,10 @@ import com.maciel.wavereaderkmm.model.ApiVariable
 import com.maciel.wavereaderkmm.model.FilterPreset
 import com.maciel.wavereaderkmm.model.WaveApiQuery
 import com.maciel.wavereaderkmm.model.WaveDataResponse
+import com.maciel.wavereaderkmm.platform.LocationData
 import com.maciel.wavereaderkmm.platform.MapView
 import com.maciel.wavereaderkmm.ui.components.DropDownFilterSearchPresets
+import com.maciel.wavereaderkmm.ui.components.LocationSearchField
 import com.maciel.wavereaderkmm.ui.components.WaveDataCard
 import com.maciel.wavereaderkmm.ui.graph.ServiceGraph
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
@@ -64,7 +69,7 @@ fun SearchDataScreen(
 ) {
     val coordinates by locationViewModel.coordinatesState.collectAsState()
     val displayLocation by locationViewModel.displayLocationText.collectAsState()
-
+    val isSearching = serviceViewModel.isSearching
     var isMapExpanded by remember { mutableStateOf(false) }
     var selectedPreset by remember { mutableStateOf(FilterPreset.Wave) }
     var selectedVariables by remember { mutableStateOf(selectedPreset.variables) }
@@ -77,8 +82,17 @@ fun SearchDataScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Search bar
-        SearchForLocation(locationViewModel = locationViewModel)
+        // Location Search Component
+        LocationSearchField(
+            locationViewModel = locationViewModel,
+            label = "Search for a location",
+            placeholder = "City, coordinates, or zip code",
+            onLocationSelected = { lat, lon, displayText ->
+                // Location automatically updates in LocationViewModel
+                println("Selected: $displayText at ($lat, $lon)")
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
 
         // Display Location info
         Text(
@@ -102,32 +116,82 @@ fun SearchDataScreen(
             }
         )
 
-        Button(
+        SearchButton(
+            coordinates = coordinates,
+            isSearching = isSearching,
             onClick = {
-                coordinates?.let { location ->
+                coordinates?.let { (lat, lon) ->
                     val query = WaveApiQuery(
-                        latitude = location.latitude,
-                        longitude = location.longitude,
+                        latitude = lat,
+                        longitude = lon,
                         variables = selectedVariables.ifEmpty {
-                            setOf(
-                                ApiVariable.WaveHeight,
-                                ApiVariable.WaveDirection,
-                                ApiVariable.WavePeriod
-                            )
+                            setOf(ApiVariable.WaveHeight, ApiVariable.WaveDirection, ApiVariable.WavePeriod)
                         },
                         forecastDays = 1
                     )
                     serviceViewModel.fetchWaveData(query)
                 }
-            },
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp),
-            enabled = coordinates != null
-        ) {
-            Text("Search")
-        }
+            }
+        )
 
         // Display Data or current state of searching data
         ShowSearchData(serviceViewModel.serviceUiState)
+    }
+}
+
+@Composable
+fun SearchButton(
+    coordinates: LocationData?,
+    isSearching: Boolean,
+    onClick: () -> Unit
+) {
+    val isEnabled = coordinates != null && !isSearching
+
+    Button(
+        onClick = onClick,
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp),
+        enabled = isEnabled,
+        modifier = Modifier.fillMaxWidth(0.6f) // Make it a bit wider for better visibility
+    ) {
+        if (isSearching) {
+            // Show loading indicator while searching
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Searching...")
+            }
+        } else {
+            // Show search text with icon
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Search Wave Data")
+            }
+        }
+    }
+
+    // Show helper text when disabled
+    if (!isEnabled && !isSearching) {
+        Text(
+            text = "Please select a location to search",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }
 
@@ -255,6 +319,7 @@ fun SearchResultScreen(
         Column(modifier = Modifier.padding(16.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 WaveDataCard(
+                    "Current Conditions",
                     values = listOf(
                         waveData.current?.waveHeight,
                         waveData.current?.wavePeriod,

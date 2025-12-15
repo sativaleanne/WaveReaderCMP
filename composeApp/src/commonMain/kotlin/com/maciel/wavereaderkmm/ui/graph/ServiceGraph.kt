@@ -19,10 +19,10 @@ fun ServiceGraph(waveData: Hourly) {
             GraphLine(it.filterNotNull(), "Wave Height", Color.Blue, "ft")
         },
         waveData.wavePeriod?.let {
-            GraphLine(it.filterNotNull(), "Wave Period", Color.Cyan, "s")
+            GraphLine(it.filterNotNull(), "Wave Period", Color(0xFF008a8a), "s")
         },
         waveData.waveDirection?.let {
-            GraphLine(it.filterNotNull(), "Wave Direction", Color.Green, "°")
+            GraphLine(it.filterNotNull(), "Wave Direction", Color(0xFF288041), "°")
         },
         waveData.windWaveHeight?.let {
             GraphLine(it.filterNotNull(), "Wind Height", Color.Red, "ft")

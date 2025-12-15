@@ -8,12 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.useContents
 import platform.CoreLocation.CLLocationCoordinate2DMake
 import platform.MapKit.MKCoordinateRegionMakeWithDistance
 import platform.MapKit.MKMapView
 import platform.MapKit.MKPointAnnotation
-import platform.UIKit.UITapGestureRecognizer
 
 /**
  * iOS implementation using MapKit

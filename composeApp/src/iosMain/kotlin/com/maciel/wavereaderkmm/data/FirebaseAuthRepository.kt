@@ -1,6 +1,11 @@
 package com.maciel.wavereaderkmm.data
 
-import com.maciel.wavereaderkmm.platform.*
+import com.maciel.wavereaderkmm.platform.firebaseCreateUserWithEmail
+import com.maciel.wavereaderkmm.platform.firebaseGetCurrentUserId
+import com.maciel.wavereaderkmm.platform.firebaseSendEmailVerification
+import com.maciel.wavereaderkmm.platform.firebaseSendPasswordReset
+import com.maciel.wavereaderkmm.platform.firebaseSignInWithEmail
+import com.maciel.wavereaderkmm.platform.firebaseSignOut
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 

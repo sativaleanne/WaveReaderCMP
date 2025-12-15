@@ -2,6 +2,7 @@ package com.maciel.wavereaderkmm.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maciel.wavereaderkmm.platform.GeocodedAddress
 import com.maciel.wavereaderkmm.platform.LocationData
 import com.maciel.wavereaderkmm.platform.LocationService
 import com.maciel.wavereaderkmm.utils.formatLatLong
@@ -21,11 +22,25 @@ class LocationViewModel(
     private val _coordinatesState = MutableStateFlow<LocationData?>(null)
     val coordinatesState: StateFlow<LocationData?> = _coordinatesState.asStateFlow()
 
+    private val geocodeCache = mutableMapOf<String, GeocodedAddress>()
+
     private val _locationError = MutableStateFlow(false)
     val locationError: StateFlow<Boolean> = _locationError.asStateFlow()
 
     private val _displayLocationText = MutableStateFlow("No location selected")
     val displayLocationText: StateFlow<String> = _displayLocationText.asStateFlow()
+
+    fun resetLocationState() {
+        _locationError.value = false
+        _displayLocationText.value = "No location selected"
+    }
+
+    suspend fun geocode(query: String): Result<GeocodedAddress> {
+        return geocodeCache[query]?.let { Result.success(it) }
+            ?: locationService.geocodeAddress(query).also { result ->
+                result.getOrNull()?.let { geocodeCache[query] = it }
+            }
+    }
 
     /**
      * Get current device location

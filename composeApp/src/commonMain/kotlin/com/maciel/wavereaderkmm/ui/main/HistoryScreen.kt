@@ -7,23 +7,29 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -51,7 +57,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.maciel.wavereaderkmm.model.HistoryFilterState
 import com.maciel.wavereaderkmm.model.HistoryRecord
 import com.maciel.wavereaderkmm.model.MeasuredWaveData
 import com.maciel.wavereaderkmm.ui.components.HistoryFilterPanel
@@ -59,6 +68,7 @@ import com.maciel.wavereaderkmm.ui.components.SnackbarHelper
 import com.maciel.wavereaderkmm.ui.graph.HistoryGraph
 import com.maciel.wavereaderkmm.utils.toDecimalString
 import com.maciel.wavereaderkmm.viewmodels.HistoryViewModel
+import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 
 /**
  * History Screen - View saved wave sessions
@@ -67,6 +77,7 @@ import com.maciel.wavereaderkmm.viewmodels.HistoryViewModel
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel,
+    locationViewModel: LocationViewModel,
     onBack: () -> Unit
 ) {
     val historyData by viewModel.historyData.collectAsState()
@@ -161,7 +172,7 @@ fun HistoryScreen(
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    DropDownFilterButton(viewModel)
+                    DropDownFilterButton(viewModel, locationViewModel)
                     DropDownExportButton(
                         historyData = historyData,
                         onExport = { format ->
@@ -169,6 +180,7 @@ fun HistoryScreen(
                         }
                     )
                 }
+                ActiveFilterInfo(filter = viewModel.filterState.collectAsState().value)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -179,10 +191,13 @@ fun HistoryScreen(
                     CircularProgressIndicator()
                 }
                 historyData.isEmpty() -> {
-                    Text(
-                        text = "No history data found.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(32.dp)
+                    // Show empty state
+                    val currentFilter by viewModel.filterState.collectAsState()
+                    EmptyHistoryState(
+                        filterState = currentFilter,
+                        onClearFilters = {
+                            viewModel.updateFilter(HistoryFilterState())
+                        }
                     )
                 }
                 else -> {
@@ -209,6 +224,71 @@ fun HistoryScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyHistoryState(
+    filterState: HistoryFilterState,
+    onClearFilters: () -> Unit
+) {
+    // Determine if any filters are active
+    val hasActiveFilter = filterState.searchLatLng != null ||
+            filterState.startDateMillis != null ||
+            filterState.endDateMillis != null
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = if (hasActiveFilter) Icons.Default.FilterAlt else Icons.Default.History,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = if (hasActiveFilter) "No matching records found" else "No history data yet",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = if (hasActiveFilter) {
+                buildString {
+                    append("No records found")
+                    if (filterState.searchLatLng != null) {
+                        append(" within ${filterState.radiusMiles.toInt()} miles of ${filterState.locationQuery}")
+                    }
+                    if (filterState.startDateMillis != null || filterState.endDateMillis != null) {
+                        append(" in the selected date range")
+                    }
+                    append(".\n\nTry adjusting your filters or search criteria.")
+                }
+            } else {
+                "Record some wave data to see it here!"
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+
+        if (hasActiveFilter) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = onClearFilters) {
+                Icon(Icons.Default.Clear, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Clear All Filters")
             }
         }
     }
@@ -262,7 +342,7 @@ fun SelectionTopBar(
  * Filter dropdown button
  */
 @Composable
-fun DropDownFilterButton(viewModel: HistoryViewModel) {
+fun DropDownFilterButton(viewModel: HistoryViewModel, locationViewModel: LocationViewModel) {
     var expanded by remember { mutableStateOf(false) }
 
     Box {
@@ -284,6 +364,7 @@ fun DropDownFilterButton(viewModel: HistoryViewModel) {
             Column(Modifier.padding(12.dp)) {
                 HistoryFilterPanel(
                     initialFilter = viewModel.filterState.collectAsState().value,
+                    locationViewModel = locationViewModel,
                     onApply = {
                         viewModel.updateFilter(it)
                         expanded = false
@@ -418,9 +499,9 @@ fun HistoryCard(
                 val avgDirection = record.dataPoints.map { it.direction }.average()
 
                 // Display averages
-                Text("Ave. Height: ${(avgHeight.toDecimalString(1))} ft")
-                Text("Ave. Period: ${avgPeriod.toDecimalString(1)} s")
-                Text("Ave. Direction: ${avgDirection.toDecimalString(1)}°")
+                Text("Avg. Height: ${(avgHeight.toDecimalString(1))} ft")
+                Text("Avg. Period: ${avgPeriod.toDecimalString(1)} s")
+                Text("Avg. Direction: ${avgDirection.toDecimalString(1)}°")
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -440,6 +521,44 @@ fun HistoryCard(
                     isInteractive = false,
                     isXLabeled = false
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ActiveFilterInfo(filter: HistoryFilterState) {
+    if (filter.searchLatLng != null) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FilterAlt,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = "Filtering near: ${filter.locationQuery}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Within ${filter.radiusMiles.toInt()} miles",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
     }

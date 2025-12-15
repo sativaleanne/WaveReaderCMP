@@ -1,11 +1,21 @@
 package com.maciel.wavereaderkmm.platform
 
-import platform.CoreLocation.*
-import platform.Foundation.*
-import platform.darwin.NSObject
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
+import kotlinx.coroutines.suspendCancellableCoroutine
+import platform.CoreLocation.CLAuthorizationStatus
+import platform.CoreLocation.CLGeocoder
+import platform.CoreLocation.CLLocation
+import platform.CoreLocation.CLLocationManager
+import platform.CoreLocation.CLLocationManagerDelegateProtocol
+import platform.CoreLocation.CLPlacemark
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
+import platform.CoreLocation.kCLAuthorizationStatusDenied
+import platform.CoreLocation.kCLAuthorizationStatusNotDetermined
+import platform.CoreLocation.kCLAuthorizationStatusRestricted
+import platform.Foundation.NSError
+import platform.darwin.NSObject
 import kotlin.coroutines.resume
 
 /**

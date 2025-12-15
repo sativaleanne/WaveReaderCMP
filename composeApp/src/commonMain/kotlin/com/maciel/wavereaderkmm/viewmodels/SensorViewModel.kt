@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maciel.wavereaderkmm.data.FirestoreRepository
 import com.maciel.wavereaderkmm.model.MeasuredWaveData
+import com.maciel.wavereaderkmm.platform.AppLogger
 import com.maciel.wavereaderkmm.platform.SensorDataSource
 import com.maciel.wavereaderkmm.processing.WaveDataProcessor
 import com.maciel.wavereaderkmm.utils.nextBigWaveConfidence
@@ -136,6 +137,7 @@ class SensorViewModel(
         direction: Float,
         time: Float
     ) {
+        AppLogger.i("Info", "RAW VALUES - Height: $height, Period: $period, Direction: $direction")
         _uiState.update { state ->
             val updated = state.measuredWaveList.toMutableList().apply {
                 add(MeasuredWaveData(height, period, direction, time))

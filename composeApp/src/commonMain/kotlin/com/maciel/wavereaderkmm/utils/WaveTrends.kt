@@ -30,13 +30,27 @@ fun List<Float>.zScore(): Float {
  * */
 fun movingAverage(data: List<Float>, window: Int): List<Float> {
     if (data.size < window || window < 1) return emptyList()
-    return data.windowed(window, step = 1) { it.average().toFloat() }
+    val averaged = data.windowed(window, step = 1) { it.average().toFloat() }
+
+    // Pad to maintain original size
+    val padding = window / 2
+    val paddedStart = List(padding) { averaged.first() }
+    val paddedEnd = List(padding) { averaged.last() }
+
+    return paddedStart + averaged + paddedEnd
 }
 
 /** Median filter for spike rejection */
 fun medianFilter(data: List<Float>, window: Int): List<Float> {
     if (data.size < window) return data
-    return data.windowed(window, 1) { it.sorted()[window / 2] }
+    val filtered = data.windowed(window, 1) { it.sorted()[window / 2] }
+
+    // Pad to maintain original size
+    val padding = window / 2
+    val paddedStart = List(padding) { filtered.first() }
+    val paddedEnd = List(padding) { filtered.last() }
+
+    return paddedStart + filtered + paddedEnd
 }
 
 /** smooth output height/period*/

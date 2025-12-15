@@ -1,9 +1,10 @@
 package com.maciel.wavereaderkmm.platform
 
-import platform.CoreMotion.*
-import platform.Foundation.NSOperationQueue
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
+import platform.CoreMotion.CMDeviceMotion
+import platform.CoreMotion.CMMotionManager
+import platform.Foundation.NSOperationQueue
 
 /**
  * iOS implementation using CoreMotion framework

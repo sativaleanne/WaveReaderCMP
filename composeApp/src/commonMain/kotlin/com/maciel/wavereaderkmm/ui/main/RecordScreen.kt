@@ -60,9 +60,7 @@ fun RecordDataScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .padding(padding)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (sensorViewModel.checkSensors()) {
@@ -218,6 +216,7 @@ fun ShowRecordData(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // Display Wave Data
             WaveDataCard(
+                "Average Conditions",
                 listOf(height, period, direction),
                 listOf("Height", "Period", "Direction"),
                 listOf("ft", "s", "°")

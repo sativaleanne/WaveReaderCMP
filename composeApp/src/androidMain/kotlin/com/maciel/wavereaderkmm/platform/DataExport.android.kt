@@ -1,15 +1,9 @@
 package com.maciel.wavereaderkmm.platform
 
-import android.content.Context
-import android.net.Uri
-import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import com.maciel.wavereaderkmm.model.HistoryRecord
-import kotlinx.coroutines.suspendCancellableCoroutine
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.coroutines.resume
 
 /**
  * Android implementation using Storage Access Framework

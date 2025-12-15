@@ -9,6 +9,7 @@ import com.maciel.wavereaderkmm.data.WaveApiRepository
 import com.maciel.wavereaderkmm.model.WaveApiQuery
 import com.maciel.wavereaderkmm.model.WaveDataResponse
 import kotlinx.coroutines.launch
+import kotlinx.io.IOException
 
 /**
  * ServiceViewModel
@@ -22,6 +23,10 @@ class ServiceViewModel(
     var serviceUiState: UiState<WaveDataResponse> by mutableStateOf(UiState.Loading)
         private set
 
+    private val _isSearching = mutableStateOf(false)
+    val isSearching: Boolean get() = _isSearching.value
+
+
     /**
      * Fetch wave data from API
      *
@@ -29,26 +34,17 @@ class ServiceViewModel(
      */
     fun fetchWaveData(query: WaveApiQuery) {
         viewModelScope.launch {
+            _isSearching.value = true
             serviceUiState = UiState.Loading
             serviceUiState = try {
                 val data = waveApiRepository.getWaveApiData(query)
                 UiState.Success(data)
+            } catch (e: IOException) {
+                UiState.Error("Network error")
             } catch (e: Exception) {
-                // Generic exception handling
-                when {
-                    e.message?.contains("Unable to resolve host") == true ||
-                            e.message?.contains("timeout") == true ||
-                            e.message?.contains("connection") == true -> {
-                        UiState.Error("Network error - please check your connection")
-                    }
-                    e.message?.contains("500") == true ||
-                            e.message?.contains("503") == true -> {
-                        UiState.Error("Server error - please try again later")
-                    }
-                    else -> {
-                        UiState.Error("Error: ${e.message ?: "Unknown error"}")
-                    }
-                }
+                UiState.Error("Server error")
+            } finally {
+                _isSearching.value = false
             }
         }
     }

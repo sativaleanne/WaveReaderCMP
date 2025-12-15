@@ -1,5 +1,6 @@
 package com.maciel.wavereaderkmm.ui.graph
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.maciel.wavereaderkmm.model.GraphDisplayOptions
@@ -52,10 +53,10 @@ fun SensorGraph(
             GraphLine(height, "Wave Height", Color.Blue, "ft")
         } else null,
         if (period.isNotEmpty()) {
-            GraphLine(period, "Wave Period", Color.Cyan, "s")
+            GraphLine(period, "Wave Period", Color(0xFF008a8a), "s")
         } else null,
         if (direction.isNotEmpty()) {
-            GraphLine(direction, "Wave Direction", Color.Green, "°")
+            GraphLine(direction, "Wave Direction", Color(0xFF288041), "°")
         } else null
     )
 

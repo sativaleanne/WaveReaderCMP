@@ -1,12 +1,17 @@
 package com.maciel.wavereaderkmm.platform
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
-import platform.CoreLocation.*
+import platform.CoreLocation.CLLocationManager
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
+import platform.CoreLocation.kCLAuthorizationStatusDenied
+import platform.CoreLocation.kCLAuthorizationStatusNotDetermined
+import platform.CoreLocation.kCLAuthorizationStatusRestricted
 
 /**
  * iOS implementation of RequestLocationPermission

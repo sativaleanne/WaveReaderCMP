@@ -12,6 +12,8 @@ import kotlin.math.sqrt
 
 // Extension functions for radians to degrees conversion
 // These replace Java's Math.toDegrees()
+fun toRadians(deg: Double): Double = deg / 180.0 * PI
+fun toRadians(deg: Float): Float = deg / 180f * PI.toFloat()
 fun Float.toDegrees(): Float = this * 180f / PI.toFloat()
 fun Double.toDegrees(): Double = this * 180.0 / PI
 
@@ -20,9 +22,10 @@ fun calculateSignificantWaveHeight(m0: Float): Float {
     return 4 * sqrt(m0)
 }
 
-// Calculate average wave period
-fun calculateAveragePeriod(m0: Float, m1: Float): Float {
-    return if (m1 != 0f) m0 / m1 else 0f
+// Calculate mean wave period
+fun calculateMeanPeriod(m0: Float, m1: Float): Float {
+    // Tm01 = m0 / m1 (mean period)
+    return if (m1 > 0f) m0 / m1 else 0f
 }
 
 // Hanning window to reduce spectral leaks
@@ -52,32 +55,47 @@ fun getPeakIndex(data: FloatArray, n: Int): Int {
     return peakIndex
 }
 
-// Calculate wave direction using phase difference
+// Calculate wave direction from cross-spectrum
 fun calculateWaveDirection(accelX: List<Float>, accelY: List<Float>): Float {
     if (accelX.isEmpty() || accelY.isEmpty()) {
         println("Warning: data is empty!")
         return 0f
     }
-    val n = accelX.size
+    // Use a fixed window size for consistent FFT resolution
+    val windowSize = 2048
 
-    val windowedX = hanningWindow(accelX)
-    val windowedY = hanningWindow(accelY)
+    // Need enough data for meaningful direction estimate
+    if (accelX.size < windowSize || accelY.size < windowSize) {
+        return 0f  // Return 0° as default until enough data
+    }
+
+    // Take the most recent windowSize samples
+    val recentX = accelX.takeLast(windowSize)
+    val recentY = accelY.takeLast(windowSize)
+    val n = windowSize
+
+    val windowedX = hanningWindow(recentX)
+    val windowedY = hanningWindow(recentY)
 
     val fftX = getFft(windowedX, n)
     val fftY = getFft(windowedY, n)
 
-    val peakX = getPeakIndex(fftX, n)
-    val peakY = getPeakIndex(fftY, n)
+    // Find dominant frequency
+    val peakFreq = getPeakIndex(fftX, n)
 
-    // Get phase angles at the dominant frequency
-    val phaseX = atan2(fftX[2 * peakX + 1], fftX[2 * peakX])
-    val phaseY = atan2(fftY[2 * peakY + 1], fftY[2 * peakY])
+    // Get complex values at peak frequency
+    val realX = fftX[2 * peakFreq]
+    val imagX = fftX[2 * peakFreq + 1]
+    val realY = fftY[2 * peakFreq]
+    val imagY = fftY[2 * peakFreq + 1]
 
-    val phaseDifference = phaseY - phaseX
+    // Direction from cross-spectrum
+    var waveDirection = atan2(
+        imagY * realX - realY * imagX,
+        realY * realX + imagY * imagX
+    ).toDegrees()
 
-    // Compute wave direction in degrees
-    var waveDirection = phaseDifference.toDegrees()
-    if (waveDirection < 0) waveDirection += 360f // Normalize to 0-360°
+    if (waveDirection < 0) waveDirection += 360f
 
     return waveDirection
 }
@@ -88,22 +106,30 @@ fun computeSpectralDensity(fft: FloatArray, n: Int): List<Float> {
     return (0 until halfN).map { i ->
         val re = fft[2 * i]
         val im = fft[2 * i + 1]
-        (re * re + im * im) / n
+        val magnitude = re * re + im * im
+        // Scale by (2/n)^2 for proper power spectral density
+        // Factor of 2 accounts for negative frequencies
+        //(magnitude * 4f) / (n * n)
+        magnitude / (n * n).toFloat()
     }
 }
 
 // Calculate spectral moments
 fun calculateSpectralMoments(spectrum: List<Float>, samplingRate: Float): Triple<Float, Float, Float> {
     val df = samplingRate / (2 * spectrum.size) // frequency resolution
-    val freq = spectrum.indices.map { it * df }
 
     var m0 = 0f
     var m1 = 0f
     var m2 = 0f
 
     for (i in spectrum.indices) {
+        val f = i * df
+
+        // Only include wave frequencies (0.05 Hz to 0.5 Hz)
+        // This filters out drift (<0.05 Hz) and high-frequency noise (>0.5 Hz)
+        if (f !in 0.05f..0.5f) continue
+
         val S = spectrum[i]
-        val f = freq[i]
         m0 += S * df
         m1 += S * f * df
         m2 += S * f * f * df
@@ -115,9 +141,9 @@ fun calculateSpectralMoments(spectrum: List<Float>, samplingRate: Float): Triple
 // Compute wave metrics from spectrum
 fun computeWaveMetricsFromSpectrum(m0: Float, m1: Float, m2: Float): Triple<Float, Float, Float> {
     val significantHeight = calculateSignificantWaveHeight(m0)
-    val avgPeriod = calculateAveragePeriod(m0, m1)
-    val zeroCrossingPeriod = if (m2 != 0f) sqrt(m0 / m2) else 0f
-    return Triple(significantHeight, avgPeriod, zeroCrossingPeriod)
+    val meanPeriod = calculateMeanPeriod(m0, m1)
+    val spectralZeroCrossingPeriod = if (m2 != 0f) sqrt(m0 / m2) else 0f
+    return Triple(significantHeight, meanPeriod, spectralZeroCrossingPeriod)
 }
 
 // Estimate zero-crossing period
@@ -142,10 +168,18 @@ fun estimateZeroCrossingPeriod(signal: List<Float>, samplingRate: Float): Float 
 // High-pass filter to remove drift
 fun highPassFilter(data: List<Float>, windowSize: Int): List<Float> {
     if (data.size < windowSize) return data
+
     val rollingAvg = data.windowed(windowSize, 1) { it.average().toFloat() }
-    return data.drop(windowSize - 1).mapIndexed { i, value ->
-        val avg = rollingAvg.getOrElse(i) { 0f }
-        value - avg
+
+    // Pad the rolling average to match original size
+    val padding = windowSize / 2
+    val paddedAvg = List(padding) { rollingAvg.first() } +
+            rollingAvg +
+            List(padding) { rollingAvg.last() }
+
+    // Subtract from original data
+    return data.mapIndexed { i, value ->
+        value - paddedAvg.getOrElse(i) { 0f }
     }
 }
 

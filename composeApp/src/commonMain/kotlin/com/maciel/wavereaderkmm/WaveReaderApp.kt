@@ -163,6 +163,7 @@ fun WaveReaderApp() {
         composable("history") {
             HistoryScreen(
                 viewModel = historyViewModel,
+                locationViewModel = locationViewModel,
                 onBack = { navController.popBackStack() }
             )
         }

@@ -6,10 +6,15 @@ import com.maciel.wavereaderkmm.data.FirestoreRepository
 import com.maciel.wavereaderkmm.model.HistoryFilterState
 import com.maciel.wavereaderkmm.model.HistoryRecord
 import com.maciel.wavereaderkmm.model.SortOrder
+import com.maciel.wavereaderkmm.utils.toRadians
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * HistoryViewModel
@@ -118,29 +123,74 @@ class HistoryViewModel(
      */
     private fun applyFilters() {
         val filter = _filterState.value
+        println("DEBUG: Applying filters")
+        println("  - Search coordinates: ${filter.searchLatLng}")
+        println("  - Radius: ${filter.radiusMiles} miles")
+        println("  - Location query (display): ${filter.locationQuery}")
+
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
 
             val records = firestoreRepository.fetchHistoryRecords(
-                locationQuery = filter.locationQuery,
+                locationQuery = "",
                 sortDescending = filter.sortOrder == SortOrder.DATE_DESCENDING,
                 startDateMillis = filter.startDateMillis,
                 endDateMillis = filter.endDateMillis
             )
 
-            // Additional client-side filtering (if needed)
-            val filtered = if (filter.locationQuery.isNotBlank()) {
-                records.filter {
-                    it.location.contains(filter.locationQuery, ignoreCase = true)
+            println("DEBUG: Fetched ${records.size} raw records from Firestore")
+
+            // Apply location filtering based on coordinates and proximity
+            val filtered = if (filter.searchLatLng != null) {
+                records.filter { record ->
+                    if (record.lat != null && record.lon != null) {
+                        val distance = calculateDistance(
+                            filter.searchLatLng.first,
+                            filter.searchLatLng.second,
+                            record.lat,
+                            record.lon
+                        )
+                        val withinRadius = distance <= filter.radiusMiles
+
+                        println("DEBUG: Record '${record.location}' at (${record.lat}, ${record.lon})")
+                        println("       Distance: ${distance.toInt()} miles - ${if (withinRadius) "INCLUDED" else "EXCLUDED"}")
+
+                        withinRadius
+                    } else {
+                        println("DEBUG: Record '${record.location}' has no coordinates - EXCLUDED")
+                        false
+                    }
                 }
             } else {
+                println("DEBUG: No location filter applied - showing all records")
                 records
             }
+
+            println("DEBUG: Final filtered count: ${filtered.size} records")
 
             _historyData.value = filtered
             _isLoading.value = false
         }
+    }
+
+    /**
+     * Calculate distance between two coordinates using Haversine formula
+     * Returns distance in miles
+     */
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val earthRadiusMiles = 3959.0
+
+        val dLat = toRadians(lat2 - lat1)
+        val dLon = toRadians(lon2 - lon1)
+
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+                cos(toRadians(lat1)) * cos(toRadians(lat2)) *
+                sin(dLon / 2) * sin(dLon / 2)
+
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+        return earthRadiusMiles * c
     }
 
     /**
@@ -159,7 +209,6 @@ class HistoryViewModel(
      */
     fun setDefaultRecentFilter() {
         val defaultFilter = HistoryFilterState(
-            locationQuery = "",
             sortOrder = SortOrder.DATE_DESCENDING,
             startDateMillis = null,
             endDateMillis = null

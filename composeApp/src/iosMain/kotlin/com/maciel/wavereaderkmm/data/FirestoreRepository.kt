@@ -3,7 +3,11 @@ package com.maciel.wavereaderkmm.data
 import com.maciel.wavereaderkmm.model.HistoryRecord
 import com.maciel.wavereaderkmm.model.MeasuredWaveData
 import com.maciel.wavereaderkmm.model.WaveDataPoint
-import com.maciel.wavereaderkmm.platform.*
+import com.maciel.wavereaderkmm.platform.AppLogger
+import com.maciel.wavereaderkmm.platform.firebaseGetCurrentUserId
+import com.maciel.wavereaderkmm.platform.firestoreDeleteSession
+import com.maciel.wavereaderkmm.platform.firestoreFetchHistory
+import com.maciel.wavereaderkmm.platform.firestoreSaveSession
 import com.maciel.wavereaderkmm.utils.formatDateTime
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume

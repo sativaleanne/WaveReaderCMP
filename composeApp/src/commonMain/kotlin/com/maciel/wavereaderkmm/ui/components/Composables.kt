@@ -27,11 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maciel.wavereaderkmm.utils.toDecimalString
 
 @Composable
 fun WaveDataCard(
+    title: String,
     values: List<Float?>,
     labels: List<String>,
     units: List<String>
@@ -46,6 +48,7 @@ fun WaveDataCard(
             .padding(vertical = 8.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
+        Text(text = title, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp).fillMaxWidth())
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -60,10 +63,8 @@ fun WaveDataCard(
                     Text(labels[index], fontWeight = FontWeight.Bold)
                     Text(
                         text = values[index]?.let {
-                            val value = if (units[index] == "s") it * 100f else it
-                            value.toDecimalString(1) + units[index]
-                        } ?: "-"
-                    )
+                            it.toDecimalString(1) + units[index]
+                        } ?: "-")
                 }
             }
         }
