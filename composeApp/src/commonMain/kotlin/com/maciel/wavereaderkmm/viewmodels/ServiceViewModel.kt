@@ -1,13 +1,14 @@
 package com.maciel.wavereaderkmm.viewmodels
 
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maciel.wavereaderkmm.data.WaveApiRepository
 import com.maciel.wavereaderkmm.model.WaveApiQuery
 import com.maciel.wavereaderkmm.model.WaveDataResponse
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.io.IOException
 
@@ -20,11 +21,8 @@ class ServiceViewModel(
     private val waveApiRepository: WaveApiRepository
 ) : ViewModel() {
 
-    var serviceUiState: UiState<WaveDataResponse> by mutableStateOf(UiState.Loading)
-        private set
-
-    private val _isSearching = mutableStateOf(false)
-    val isSearching: Boolean get() = _isSearching.value
+    private val _serviceUiState = MutableStateFlow<UiState<WaveDataResponse>>(UiState.Empty)
+    val serviceUiState: StateFlow<UiState<WaveDataResponse>> = _serviceUiState.asStateFlow()
 
 
     /**
@@ -34,17 +32,18 @@ class ServiceViewModel(
      */
     fun fetchWaveData(query: WaveApiQuery) {
         viewModelScope.launch {
-            _isSearching.value = true
-            serviceUiState = UiState.Loading
-            serviceUiState = try {
+            _serviceUiState.value = UiState.Loading
+            _serviceUiState.value = try {
                 val data = waveApiRepository.getWaveApiData(query)
                 UiState.Success(data)
             } catch (e: IOException) {
-                UiState.Error("Network error")
+                UiState.Error("Network error: ${e.message}",
+                exception = e)
             } catch (e: Exception) {
-                UiState.Error("Server error")
-            } finally {
-                _isSearching.value = false
+                UiState.Error(
+                    message = "Unexpected error: ${e.message}",
+                    exception = e
+                )
             }
         }
     }
@@ -53,6 +52,6 @@ class ServiceViewModel(
      * Reset to loading state
      */
     fun reset() {
-        serviceUiState = UiState.Loading
+        _serviceUiState.value = UiState.Empty
     }
 }
