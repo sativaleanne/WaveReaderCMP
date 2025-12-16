@@ -13,13 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,9 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -40,15 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.maciel.wavereaderkmm.model.ApiVariable
-import com.maciel.wavereaderkmm.model.FilterPreset
 import com.maciel.wavereaderkmm.model.WaveApiQuery
 import com.maciel.wavereaderkmm.model.WaveDataResponse
-import com.maciel.wavereaderkmm.platform.LocationData
 import com.maciel.wavereaderkmm.platform.MapView
-import com.maciel.wavereaderkmm.ui.components.DropDownFilterSearchPresets
 import com.maciel.wavereaderkmm.ui.components.LocationSearchField
 import com.maciel.wavereaderkmm.ui.components.WaveDataCard
 import com.maciel.wavereaderkmm.ui.graph.ServiceGraph
@@ -67,12 +58,12 @@ fun SearchDataScreen(
     locationViewModel: LocationViewModel,
     serviceViewModel: ServiceViewModel
 ) {
+
+    val uiState by serviceViewModel.serviceUiState.collectAsState()
     val coordinates by locationViewModel.coordinatesState.collectAsState()
     val displayLocation by locationViewModel.displayLocationText.collectAsState()
-    val isSearching = serviceViewModel.isSearching
     var isMapExpanded by remember { mutableStateOf(false) }
-    var selectedPreset by remember { mutableStateOf(FilterPreset.Wave) }
-    var selectedVariables by remember { mutableStateOf(selectedPreset.variables) }
+
 
     Column(
         modifier = Modifier
@@ -107,26 +98,19 @@ fun SearchDataScreen(
             locationViewModel = locationViewModel
         )
 
-        // Search + Filters Button
-        DropDownFilterSearchPresets(
-            selectedPreset = selectedPreset,
-            onPresetSelected = {
-                selectedPreset = it
-                selectedVariables = it.variables
-            }
-        )
-
         SearchButton(
-            coordinates = coordinates,
-            isSearching = isSearching,
+            uiState = uiState,
+            hasCoordinates = coordinates != null,
             onClick = {
                 coordinates?.let { (lat, lon) ->
                     val query = WaveApiQuery(
                         latitude = lat,
                         longitude = lon,
-                        variables = selectedVariables.ifEmpty {
-                            setOf(ApiVariable.WaveHeight, ApiVariable.WaveDirection, ApiVariable.WavePeriod)
-                        },
+                        variables = setOf(
+                            ApiVariable.WaveHeight,
+                            ApiVariable.WavePeriod,
+                            ApiVariable.WaveDirection
+                        ),
                         forecastDays = 1
                     )
                     serviceViewModel.fetchWaveData(query)
@@ -134,18 +118,35 @@ fun SearchDataScreen(
             }
         )
 
-        // Display Data or current state of searching data
-        ShowSearchData(serviceViewModel.serviceUiState)
+        when (val state = uiState) {
+            is UiState.Loading -> LoadingView()
+
+            is UiState.Success -> WaveDataDisplay(
+                waveData = state.data,
+                locationText = displayLocation,
+                onRetry = { serviceViewModel.reset() }
+            )
+
+            is UiState.Error -> ErrorView(
+                message = state.message ?: "Unknown error",
+                onRetry = { serviceViewModel.reset() },
+            )
+
+            is UiState.Empty -> EmptyStateView()
+        }
     }
 }
 
 @Composable
 fun SearchButton(
-    coordinates: LocationData?,
-    isSearching: Boolean,
+    hasCoordinates: Boolean,
+    uiState: UiState<WaveDataResponse>,
     onClick: () -> Unit
 ) {
-    val isEnabled = coordinates != null && !isSearching
+    val isLoading = uiState is UiState.Loading
+    val isEnabled = uiState is UiState.Empty && hasCoordinates
+
+
 
     Button(
         onClick = onClick,
@@ -153,7 +154,7 @@ fun SearchButton(
         enabled = isEnabled,
         modifier = Modifier.fillMaxWidth(0.6f) // Make it a bit wider for better visibility
     ) {
-        if (isSearching) {
+        if (isLoading) {
             // Show loading indicator while searching
             Row(
                 horizontalArrangement = Arrangement.Center,
@@ -179,19 +180,13 @@ fun SearchButton(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Search Wave Data")
+                if (isEnabled) {
+                    Text("Search Wave Data")
+                } else {
+                    Text("No location selected")
+                }
             }
         }
-    }
-
-    // Show helper text when disabled
-    if (!isEnabled && !isSearching) {
-        Text(
-            text = "Please select a location to search",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(top = 4.dp)
-        )
     }
 }
 
@@ -244,64 +239,13 @@ fun ExpandableMapCard(
 }
 
 /**
- * Search Field for getting location
- */
-@Composable
-fun SearchForLocation(locationViewModel: LocationViewModel) {
-    var text by remember { mutableStateOf("") }
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            label = { Text("Search for a place") },
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 8.dp),
-            singleLine = true,
-            maxLines = 1,
-            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    if (text.isNotBlank()) {
-                        locationViewModel.selectLocation(text)
-                    }
-                }
-            )
-        )
-
-        // Find Current Location button
-        IconButton(
-            onClick = {
-                locationViewModel.fetchUserLocation()
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = "Use current location"
-            )
-        }
-    }
-}
-
-/**
- * Display current state of searching data
- */
-@Composable
-fun ShowSearchData(serviceUiState: UiState<WaveDataResponse>) {
-    when (serviceUiState) {
-        is UiState.Loading -> LoadingScreen()
-        is UiState.Success -> SearchResultScreen(waveData = serviceUiState.data)
-        is UiState.Error -> ErrorScreen(message = serviceUiState.message)
-    }
-}
-
-/**
  * Show text and graph of data response from API
  */
 @Composable
-fun SearchResultScreen(
+fun WaveDataDisplay(
     waveData: WaveDataResponse,
+    locationText: String,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -311,15 +255,18 @@ fun SearchResultScreen(
     ) {
         if (waveData.current?.waveHeight == null) {
             Text(
-                text = "There is no wave data at this location!",
+                text = "There is no wave data at $locationText!",
                 fontWeight = FontWeight.Bold
             )
+        }
+        Button(onClick = onRetry) {
+            Text("New Search")
         }
 
         Column(modifier = Modifier.padding(16.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 WaveDataCard(
-                    "Current Conditions",
+                    "Current Conditions at $locationText",
                     values = listOf(
                         waveData.current?.waveHeight,
                         waveData.current?.wavePeriod,
@@ -351,33 +298,38 @@ fun SearchResultScreen(
  * Loading screen
  */
 @Composable
-fun LoadingScreen(modifier: Modifier = Modifier) {
-//    Image(
-//        modifier = modifier.size(200.dp),
-//        painter = painterResource(Res.drawable.loading_img),
-//        contentDescription = stringResource(Res.string.loading_image_descr)
-//    )
+fun LoadingView() {
+    CircularProgressIndicator(
+        modifier = Modifier.padding(16.dp)
+    )
 }
 
 /**
  * Error screen
  */
 @Composable
-fun ErrorScreen(
+fun ErrorView(
     modifier: Modifier = Modifier,
-    message: String? = null
+    message: String? = null,
+    onRetry: () -> Unit
 ) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-//        Image(
-//            painter = painterResource(Res.drawable.ic_connection_error),
-//            contentDescription = stringResource(Res.string.error_image_descr)
-//        )
         Text(
             text = message ?: stringResource(Res.string.loading_failed_text),
             modifier = Modifier.padding(16.dp)
         )
     }
+}
+
+@Composable
+fun EmptyStateView() {
+    Text(
+        text = "Please select a location to search",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.padding(top = 4.dp)
+    )
 }
