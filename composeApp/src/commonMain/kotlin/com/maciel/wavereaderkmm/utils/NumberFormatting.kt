@@ -47,3 +47,13 @@ fun formatLatLong(lat: Double, lon: Double): String {
 
     return "${latAbs}°$latDir, ${lonAbs}°$lonDir"
 }
+
+/**
+ * Format duration in seconds to MM:SS
+ */
+fun formatDuration(seconds: Float): String {
+    val totalSeconds = seconds.toInt()
+    val minutes = totalSeconds / 60
+    val secs = totalSeconds % 60
+    return "${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}"
+}

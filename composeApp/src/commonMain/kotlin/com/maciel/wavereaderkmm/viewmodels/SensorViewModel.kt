@@ -26,6 +26,18 @@ data class WaveUiState(
     val height: Float? = null,
     val period: Float? = null,
     val direction: Float? = null,
+
+    val isBelowThreshold: Boolean = false,
+
+    val isRecording: Boolean = false,
+    val recordingDuration: Float = 0f,
+
+    val isSaving: Boolean = false,
+    val lastSaveError: String? = null,
+    val lastSaveSuccess: Boolean = false,
+
+    val sensorsAvailable: Boolean = true,
+    val sensorError: String? = null
 )
 
 /**
@@ -60,13 +72,26 @@ class SensorViewModel(
      * Check if sensors are available on this device
      */
     fun checkSensors(): Boolean {
-        return sensorDataSource.areSensorsAvailable()
+        if (!sensorDataSource.areSensorsAvailable()) {
+            _uiState.update {
+                it.copy(
+                    sensorsAvailable = false,
+                    sensorError = "Required sensors not available"
+                )
+            }
+            return false
+        }
+        return true
     }
 
     /**
      * Start collecting sensor data
      */
     fun startSensors() {
+        if(!checkSensors()) return
+
+        // Update UI state
+        _uiState.update { it.copy(isRecording = true, sensorError = null) }
         startTime = currentTimeMs()
 
         // Start platform-specific sensor collection
@@ -86,6 +111,10 @@ class SensorViewModel(
         processingJob = viewModelScope.launch {
             while (isActive) {
                 delay(2000L)
+
+                val duration = (currentTimeMs() - startTime) / 1000f
+                _uiState.update { it.copy(recordingDuration = duration) }
+
                 processData()
             }
         }
@@ -97,7 +126,7 @@ class SensorViewModel(
     fun stopSensors() {
         sensorDataSource.stopListening()
         processingJob?.cancel()
-        processingJob = null
+        _uiState.update { it.copy(isRecording = false) }
     }
 
     /**
@@ -106,9 +135,7 @@ class SensorViewModel(
     private fun processData() {
         val gyroDirection = sensorDataSource.getCurrentGyroDirection()
 
-        val result = waveDataProcessor.processWaveData(gyroDirection) ?: return
-
-        val (avgHeight, avgPeriod, direction) = result
+        val (avgHeight, avgPeriod, direction) = waveDataProcessor.processWaveData(gyroDirection) ?: Triple(0f, 0f, 0f)
 
         // Smooth the output
         smoothedHeight = smoothOutput(smoothedHeight, avgHeight)
@@ -181,6 +208,8 @@ class SensorViewModel(
         onFailure: (Exception) -> Unit = {}
     ) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, lastSaveError = null) }
+
             val result = firestoreRepository.saveSession(
                 measuredData = uiState.value.measuredWaveList,
                 locationName = currentLocationName,
@@ -188,13 +217,29 @@ class SensorViewModel(
             )
 
             result.onSuccess { docId ->
-                println("Wave session saved successfully! ID: $docId")
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        lastSaveSuccess = true,
+                        lastSaveError = null
+                    )
+                }
                 onSuccess()
             }.onFailure { exception ->
-                println("Error saving wave session: $exception")
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        lastSaveSuccess = false,
+                        lastSaveError = exception.message ?: "Unknown error"
+                    )
+                }
                 onFailure(exception as Exception)
             }
         }
+    }
+
+    fun clearSaveError() {
+        _uiState.update { it.copy(lastSaveError = null, lastSaveSuccess = false) }
     }
 
     /**

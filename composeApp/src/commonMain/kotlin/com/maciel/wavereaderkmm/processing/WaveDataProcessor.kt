@@ -54,7 +54,9 @@ class WaveDataProcessor {
      * @return Triple of (height, period, direction) or null if not enough data
      */
     fun processWaveData(gyroDirection: Float?): Triple<Float, Float, Float>? {
-        if (verticalAcceleration.size < 1024) return null
+        if (verticalAcceleration.size < 1024) {
+            return Triple(0f, 0f, 0f)
+        }
 
         val windowSize = 1024
         val stepSize = 512
@@ -71,7 +73,15 @@ class WaveDataProcessor {
         for (segment in segments) {
             // Reject extremely high or low windows
             val rms = sqrt(segment.sumOf { it.toDouble() * it.toDouble() } / segment.size)
-            if (rms < 0.01f || rms > 10f) continue
+            if (rms < 0.02f) {
+                println("Segment RMS too low: $rms m/s²")
+                continue
+            }
+
+            if (rms > 10f) {
+                println("Segment RMS too high: $rms m/s² (likely invalid)")
+                continue
+            }
 
             // Median filter to remove noise
             val medianed = medianFilter(segment, 5)
@@ -87,30 +97,41 @@ class WaveDataProcessor {
             val spectrum = computeSpectralDensity(fft, windowed.size)
             val (m0, m1, m2) = calculateSpectralMoments(spectrum, samplingRate)
 
+            if (m0 < 0.0001f) {
+                println("Spectral energy too low: m0=$m0")
+                continue
+            }
+
             // Get spectral and zero-crossing wave periods
             val (sigWaveHeight, avePeriod, spectralZeroCrossPeriod) = computeWaveMetricsFromSpectrum(m0, m1, m2)
             val measuredZeroCrossPeriod = estimateZeroCrossingPeriod(segment, samplingRate)
+        // Stability
+            val finalPeriod = if (measuredZeroCrossPeriod.isFinite()) {
+                (spectralZeroCrossPeriod + measuredZeroCrossPeriod) / 2f
+            } else {
+                spectralZeroCrossPeriod
+            }
 
-            // Stability
-//            val finalPeriod = if (measuredZeroCrossPeriod.isFinite()) {
-//                (spectralZeroCrossPeriod + measuredZeroCrossPeriod) / 2f
-//            } else {
-//                spectralZeroCrossPeriod
-//            }
-            val finalPeriod = spectralZeroCrossPeriod
 
             // Only valid stuff
-            if (sigWaveHeight.isFinite() && finalPeriod.isFinite()) {
+            if (sigWaveHeight.isFinite() &&
+                finalPeriod.isFinite() &&
+                sigWaveHeight > 0.05f) {  // Minimum 5cm / 2 inches
+
                 heights.add(sigWaveHeight)
                 periods.add(finalPeriod)
             }
         }
 
-        if (heights.isEmpty() || periods.isEmpty()) return null
+        if (heights.isEmpty() || periods.isEmpty()) {
+            println("No valid wave segments detected - returning zeros")
+            return Triple(0f, 0f, 0f)
+        }
 
         // Smoothing
-        val avgHeight = heights.average().toFloat()
+        val avgHeightMeters = heights.average().toFloat()
         val avgPeriod = periods.average().toFloat()
+        val avgHeight = avgHeightMeters * 3.28084f
 
         // Calculate wave direction using horizontal motion
         val accelX = horizontalAcceleration.map { it.first }

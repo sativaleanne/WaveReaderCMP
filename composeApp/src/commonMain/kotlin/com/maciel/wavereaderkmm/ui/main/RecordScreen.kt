@@ -7,18 +7,27 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,19 +36,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.maciel.wavereaderkmm.model.GraphDisplayOptions
 import com.maciel.wavereaderkmm.ui.components.AlertConfirm
 import com.maciel.wavereaderkmm.ui.components.DropDownFilterGraphView
-import com.maciel.wavereaderkmm.ui.components.SnackbarHelper
 import com.maciel.wavereaderkmm.ui.components.WaveDataCard
 import com.maciel.wavereaderkmm.ui.graph.SensorGraph
+import com.maciel.wavereaderkmm.utils.formatDuration
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 import com.maciel.wavereaderkmm.viewmodels.SensorViewModel
 import com.maciel.wavereaderkmm.viewmodels.WaveUiState
 
 /**
  * Record Screen
+ *
+ * Shows real-time wave measurements from device sensors
  */
 @Composable
 fun RecordDataScreen(
@@ -49,10 +61,26 @@ fun RecordDataScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val snackbarHelper = remember { SnackbarHelper(snackbarHostState, scope) }
-
     val uiState by sensorViewModel.uiState.collectAsState()
-    var isSensorActive by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.lastSaveSuccess) {
+        if (uiState.lastSaveSuccess) {
+            snackbarHostState.showSnackbar(
+                message = "Wave session saved successfully!",
+                duration = SnackbarDuration.Short
+            )
+            sensorViewModel.clearSaveError()
+        }
+    }
+
+    LaunchedEffect(uiState.lastSaveError) {
+        uiState.lastSaveError?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = "Save failed: $error",
+                duration = SnackbarDuration.Long
+            )
+        }
+    }
 
     Scaffold(
         snackbarHost = {
@@ -60,174 +88,268 @@ fun RecordDataScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()),
+            modifier = Modifier
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (sensorViewModel.checkSensors()) {
-                // Display Data
-                ShowRecordData(uiState = uiState, viewModel = sensorViewModel)
-
-                if (isSensorActive && uiState.measuredWaveList.isEmpty()) {
-                    Text("Collecting Data...")
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // BUTTON ROW
-                Row(
-                    modifier = Modifier.padding(8.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    SensorButton(isSensorActive) { active ->
-                        isSensorActive = active
-                        if (active) {
-                            sensorViewModel.startSensors()
-                            snackbarHelper.showInfo("Recording started")
-                        } else {
-                            sensorViewModel.stopSensors()
-                            snackbarHelper.showInfo("Recording paused")
-                        }
-                    }
-
-                    if (uiState.measuredWaveList.isNotEmpty()) {
-                        ClearButton(sensorViewModel, snackbarHelper)
-                    }
-
-                    if (uiState.measuredWaveList.isNotEmpty() && !isGuest && !isSensorActive) {
-                        SaveButton(
-                            sensorViewModel,
-                            locationViewModel,
-                            snackbarHelper
-                        )
-                    }
-                }
-            } else {
-                ShowSensorErrorScreen()
-                snackbarHelper.showError("Sensors unavailable")
+            if (!uiState.sensorsAvailable) {
+                SensorUnavailableBanner(uiState.sensorError)
+                return@Column
             }
+            if (!uiState.isRecording && uiState.measuredWaveList.isEmpty() && uiState.sensorsAvailable) {
+                Text("Press Record to start collecting wave data.")
+            }
+
+            if (uiState.isRecording) {
+                RecordingIndicator(
+                    duration = uiState.recordingDuration,
+                )
+            }
+
+            if (uiState.isRecording && uiState.measuredWaveList.isEmpty()) {
+                Spacer(modifier = Modifier.height(32.dp))
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Collecting data...",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            if (uiState.measuredWaveList.isNotEmpty()) {
+                WaveDataDisplay(
+                    uiState = uiState,
+                    viewModel = sensorViewModel
+                )
+            }
+
+            if (uiState.isSaving) {
+                Spacer(modifier = Modifier.height(16.dp))
+                SavingIndicator()
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            ActionButtons(
+                uiState = uiState,
+                viewModel = sensorViewModel,
+                locationViewModel = locationViewModel,
+                isGuest = isGuest
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
-// Error if sensors unavailable
+/**
+ * Banner shown when sensors are unavailable
+ */
 @Composable
-fun ShowSensorErrorScreen() {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun SensorUnavailableBanner(errorMessage: String?) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
     ) {
-        Text("Unable to use this feature due to missing sensors!")
-    }
-}
-
-// Start/Stop Sensors
-@Composable
-fun SensorButton(
-    isSensorActive: Boolean,
-    onToggle: (Boolean) -> Unit
-) {
-    Button(
-        modifier = Modifier.padding(8.dp),
-        shape = RoundedCornerShape(9.dp),
-        onClick = { onToggle(!isSensorActive) },
-        elevation = ButtonDefaults.buttonElevation(1.dp)
-    ) {
-        Text(text = if (isSensorActive) "Pause" else "Record")
-    }
-}
-
-// Save data to firebase with location
-@Composable
-fun SaveButton(
-    sensorViewModel: SensorViewModel,
-    locationViewModel: LocationViewModel,
-    snackbarHelper: SnackbarHelper
-) {
-    var isSaving by remember { mutableStateOf(false) }
-
-    Button(
-        modifier = Modifier.padding(8.dp),
-        shape = RoundedCornerShape(9.dp),
-        onClick = {
-            locationViewModel.fetchLocationAndSave(
-                sensorViewModel = sensorViewModel,
-                onSavingStarted = { isSaving = true },
-                onSavingFinished = { isSaving = false },
-                onSaveSuccess = {
-                    snackbarHelper.showSuccess("Saved successfully!")
-                }
-            )
-        },
-        enabled = !isSaving,
-        elevation = ButtonDefaults.buttonElevation(1.dp)
-    ) {
-        Text(if (isSaving) "Saving..." else "Save")
-    }
-}
-
-// Clear data from graph and database
-@Composable
-fun ClearButton(
-    viewModel: SensorViewModel,
-    snackbarHelper: SnackbarHelper
-) {
-    var showDialog by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
-    Column {
-        Button(
-            modifier = Modifier.padding(8.dp),
-            shape = RoundedCornerShape(9.dp),
-            onClick = { showDialog = true },
-            elevation = ButtonDefaults.buttonElevation(1.dp)
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Clear")
-        }
-
-        if (showDialog) {
-            AlertConfirm(
-                onDismissRequest = { showDialog = false },
-                onConfirmation = {
-                    viewModel.clearMeasuredWaveData()
-                    showDialog = false
-                    snackbarHelper.showInfo("Data cleared")
-                },
-                dialogTitle = "Clear Data?",
-                dialogText = "Are you sure you want to delete all recorded wave data?",
-                icon = Icons.Default.Warning
+            Icon(
+                imageVector = Icons.Default.Error,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Sensors Unavailable",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = errorMessage ?: "Required sensors are not available on this device",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
         }
     }
 }
 
-// Display data in graph and text
+/**
+ * Recording indicator with live duration
+ */
 @Composable
-fun ShowRecordData(
+private fun RecordingIndicator(
+    duration: Float,
+) {
+    Row {
+        Text(
+            text = "Recording: ",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = formatDuration(duration),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+        )
+    }
+}
+
+/**
+ * Saving indicator
+ */
+@Composable
+private fun SavingIndicator() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(20.dp),
+            strokeWidth = 2.dp
+        )
+        Spacer(modifier = Modifier.size(8.dp))
+        Text(
+            text = "Saving...",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+/**
+ * Wave data display with graph and metrics
+ */
+@Composable
+private fun WaveDataDisplay(
     uiState: WaveUiState,
     viewModel: SensorViewModel
 ) {
     var displayOptions by remember { mutableStateOf(GraphDisplayOptions()) }
     val confidence by viewModel.bigWaveConfidence.collectAsState()
 
-    val height = uiState.height
-    val period = uiState.period
-    val direction = uiState.direction
+    Column(
+        modifier = Modifier.padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        WaveDataCard(
+            title = "Current Conditions",
+            values = listOf(uiState.height, uiState.period, uiState.direction),
+            labels = listOf("Height", "Period", "Direction"),
+            units = listOf("ft", "s", "°")
+        )
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Display Wave Data
-            WaveDataCard(
-                "Average Conditions",
-                listOf(height, period, direction),
-                listOf("Height", "Period", "Direction"),
-                listOf("ft", "s", "°")
+        Spacer(modifier = Modifier.height(16.dp))
+
+        DropDownFilterGraphView(
+            displayOptions = displayOptions,
+            onUpdate = { displayOptions = it }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SensorGraph(
+            waveData = uiState.measuredWaveList,
+            display = displayOptions
+        )
+    }
+}
+
+/**
+ * Action buttons for record/save/clear
+ */
+@Composable
+private fun ActionButtons(
+    uiState: WaveUiState,
+    viewModel: SensorViewModel,
+    locationViewModel: LocationViewModel,
+    isGuest: Boolean
+) {
+    var showClearDialog by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        Button(
+            onClick = {
+                if (uiState.isRecording) {
+                    viewModel.stopSensors()
+                } else {
+                    viewModel.startSensors()
+                }
+            },
+            enabled = uiState.sensorsAvailable && !uiState.isSaving,
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = if (uiState.isRecording) "Stop" else "Record"
             )
+        }
 
-            // Filter Graph display
-            DropDownFilterGraphView(displayOptions, onUpdate = { displayOptions = it })
+        Spacer(modifier = Modifier.size(8.dp))
 
-            Column(modifier = Modifier.fillMaxWidth()) {
-                SensorGraph(uiState.measuredWaveList, displayOptions)
+        if (!isGuest) {
+            Button(
+                onClick = {
+                    // Get current location and save
+                    locationViewModel.fetchLocationAndSave(
+                        sensorViewModel = viewModel,
+                        onSavingStarted = { },
+                        onSavingFinished = { },
+                        onSaveSuccess = { }
+                    )
+                },
+                enabled = !uiState.isSaving &&
+                        !uiState.isRecording &&
+                        uiState.measuredWaveList.isNotEmpty(),
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Save")
+            }
+
+            Spacer(modifier = Modifier.size(8.dp))
+        }
+        if (uiState.measuredWaveList.isNotEmpty()) {
+            Button(
+                onClick = { showClearDialog = true },
+                enabled = !uiState.isRecording &&
+                        uiState.measuredWaveList.isNotEmpty() &&
+                        !uiState.isSaving,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Clear")
             }
         }
+    }
+
+    if (showClearDialog) {
+        AlertConfirm(
+            onDismissRequest = { showClearDialog = false },
+            onConfirmation = {
+                viewModel.clearMeasuredWaveData()
+                showClearDialog = false
+            },
+            dialogTitle = "Clear Data?",
+            dialogText = "Are you sure you want to delete all recorded wave data? This cannot be undone.",
+            icon = Icons.Default.Warning
+        )
     }
 }
