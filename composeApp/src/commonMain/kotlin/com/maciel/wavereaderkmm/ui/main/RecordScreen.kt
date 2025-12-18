@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -46,7 +47,9 @@ import com.maciel.wavereaderkmm.ui.graph.SensorGraph
 import com.maciel.wavereaderkmm.utils.formatDuration
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 import com.maciel.wavereaderkmm.viewmodels.SensorViewModel
+import com.maciel.wavereaderkmm.viewmodels.UiState
 import com.maciel.wavereaderkmm.viewmodels.WaveUiState
+import kotlinx.coroutines.launch
 
 /**
  * Record Screen
@@ -98,14 +101,13 @@ fun RecordDataScreen(
                 SensorUnavailableBanner(uiState.sensorError)
                 return@Column
             }
+
             if (!uiState.isRecording && uiState.measuredWaveList.isEmpty() && uiState.sensorsAvailable) {
                 Text("Press Record to start collecting wave data.")
             }
 
             if (uiState.isRecording) {
-                RecordingIndicator(
-                    duration = uiState.recordingDuration,
-                )
+                RecordingIndicator(duration = uiState.recordingDuration)
             }
 
             if (uiState.isRecording && uiState.measuredWaveList.isEmpty()) {
@@ -188,9 +190,7 @@ private fun SensorUnavailableBanner(errorMessage: String?) {
  * Recording indicator with live duration
  */
 @Composable
-private fun RecordingIndicator(
-    duration: Float,
-) {
+private fun RecordingIndicator(duration: Float) {
     Row {
         Text(
             text = "Recording: ",
@@ -266,6 +266,8 @@ private fun WaveDataDisplay(
 
 /**
  * Action buttons for record/save/clear
+ *
+ * ✅ REFACTORED: Now properly orchestrates location fetch and save
  */
 @Composable
 private fun ActionButtons(
@@ -275,6 +277,53 @@ private fun ActionButtons(
     isGuest: Boolean
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    var isFetchingLocationForSave by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    // ✅ NEW: Collect location state
+    val locationUiState by locationViewModel.uiState.collectAsState()
+
+    // ✅ NEW: Handle save flow when location is ready
+    LaunchedEffect(locationUiState, isFetchingLocationForSave) {
+        if (!isFetchingLocationForSave) return@LaunchedEffect
+
+        when (val state = locationUiState) {
+            is UiState.Success -> {
+                val locationData = state.data
+                val location = locationData.currentLocation
+
+                // Set location and save
+                viewModel.setCurrentLocation(
+                    name = locationData.displayText,
+                    latLng = location?.let { it.latitude to it.longitude }
+                )
+
+                viewModel.saveToFirestore(
+                    onSuccess = {
+                        isFetchingLocationForSave = false
+                    },
+                    onFailure = {
+                        isFetchingLocationForSave = false
+                    }
+                )
+            }
+
+            is UiState.Error -> {
+                // Location failed - save anyway with "Unknown location"
+                viewModel.setCurrentLocation("Unknown location", null)
+                viewModel.saveToFirestore(
+                    onSuccess = {
+                        isFetchingLocationForSave = false
+                    },
+                    onFailure = {
+                        isFetchingLocationForSave = false
+                    }
+                )
+            }
+
+            else -> { /* Loading or Empty - wait */ }
+        }
+    }
 
     Row(
         modifier = Modifier
@@ -282,6 +331,7 @@ private fun ActionButtons(
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
+        // Record/Stop button
         Button(
             onClick = {
                 if (uiState.isRecording) {
@@ -294,35 +344,51 @@ private fun ActionButtons(
             modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text(
-                text = if (uiState.isRecording) "Stop" else "Record"
-            )
+            Text(text = if (uiState.isRecording) "Stop" else "Record")
         }
 
         Spacer(modifier = Modifier.size(8.dp))
 
+        // Save button
         if (!isGuest) {
             Button(
                 onClick = {
-                    // Get current location and save
-                    locationViewModel.fetchLocationAndSave(
-                        sensorViewModel = viewModel,
-                        onSavingStarted = { },
-                        onSavingFinished = { },
-                        onSaveSuccess = { }
-                    )
+                    // ✅ NEW: Trigger location fetch and save
+                    scope.launch {
+                        isFetchingLocationForSave = true
+                        locationViewModel.getCurrentLocation()
+                    }
                 },
                 enabled = !uiState.isSaving &&
                         !uiState.isRecording &&
-                        uiState.measuredWaveList.isNotEmpty(),
+                        uiState.measuredWaveList.isNotEmpty() &&
+                        !isFetchingLocationForSave,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Save")
+                if (isFetchingLocationForSave && locationUiState is UiState.Loading) {
+                    // Show loading during location fetch
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Saving...")
+                    }
+                } else {
+                    Text("Save")
+                }
             }
 
             Spacer(modifier = Modifier.size(8.dp))
         }
+
+        // Clear button
         if (uiState.measuredWaveList.isNotEmpty()) {
             Button(
                 onClick = { showClearDialog = true },
@@ -340,6 +406,7 @@ private fun ActionButtons(
         }
     }
 
+    // Clear confirmation dialog
     if (showClearDialog) {
         AlertConfirm(
             onDismissRequest = { showClearDialog = false },

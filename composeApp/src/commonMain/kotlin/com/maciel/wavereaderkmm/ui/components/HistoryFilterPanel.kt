@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.maciel.wavereaderkmm.model.HistoryFilterState
 import com.maciel.wavereaderkmm.model.SortOrder
 import com.maciel.wavereaderkmm.utils.formatDate
+import com.maciel.wavereaderkmm.viewmodels.HistoryViewModel
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 
 /**
@@ -43,6 +44,7 @@ import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryFilterPanel(
+    historyViewModel: HistoryViewModel,
     initialFilter: HistoryFilterState = HistoryFilterState(),
     locationViewModel: LocationViewModel,
     onApply: (HistoryFilterState) -> Unit
@@ -101,9 +103,6 @@ fun HistoryFilterPanel(
         if (useLocationFilter) {
             LocationSearchField(
                 locationViewModel = locationViewModel,
-                initialValue = locationText,
-                label = "Search location",
-                placeholder = "City, coordinates, or zip code",
                 onLocationSelected = { lat, lon, displayText ->
                     println("DEBUG: Location selected")
                     println("  - Coordinates: ($lat, $lon)")
@@ -114,12 +113,6 @@ fun HistoryFilterPanel(
 
                     // Store display text for user reference
                     locationText = displayText
-                },
-                onTextChanged = { newText ->
-                    locationText = newText
-                    if (newText.isEmpty()) {
-                        searchLatLng = null
-                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -243,6 +236,7 @@ fun HistoryFilterPanel(
                     sortOrder = SortOrder.DATE_DESCENDING
                     locationViewModel.resetLocationState()
                     onApply(HistoryFilterState())
+                    historyViewModel.refresh()
                 },
                 modifier = Modifier.weight(1f)
             ) {

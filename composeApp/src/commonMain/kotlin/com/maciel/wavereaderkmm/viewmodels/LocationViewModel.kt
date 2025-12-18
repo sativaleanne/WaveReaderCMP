@@ -12,157 +12,180 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
+ * UI State for Location operations
+ *
+ * Consolidates all location-related state into a single immutable data class.
+ */
+data class LocationUiState(
+    val currentLocation: LocationData? = null,
+    val displayText: String = "No location selected",
+    val lastGeocodedAddress: GeocodedAddress? = null
+)
+
+/**
  * LocationViewModel
- * Uses LocationService (expect/actual) for platform-specific location operations
  */
 class LocationViewModel(
     private val locationService: LocationService
 ) : ViewModel() {
 
-    private val _coordinatesState = MutableStateFlow<LocationData?>(null)
-    val coordinatesState: StateFlow<LocationData?> = _coordinatesState.asStateFlow()
+    // Single source of truth for location state
+    private val _uiState = MutableStateFlow<UiState<LocationUiState>>(
+        UiState.Success(LocationUiState()) // Start with empty state
+    )
+    val uiState: StateFlow<UiState<LocationUiState>> = _uiState.asStateFlow()
 
+    // Internal cache - not part of UI state
     private val geocodeCache = mutableMapOf<String, GeocodedAddress>()
 
-    private val _locationError = MutableStateFlow(false)
-    val locationError: StateFlow<Boolean> = _locationError.asStateFlow()
+    /**
+     * Get current device location
+     *
+     * Using .onSuccess { } and .onFailure { }
+     *
+     */
+    fun getCurrentLocation() {
+        viewModelScope.launch {
+            val currentState = getCurrentState()
+            _uiState.value = UiState.Loading
 
-    private val _displayLocationText = MutableStateFlow("No location selected")
-    val displayLocationText: StateFlow<String> = _displayLocationText.asStateFlow()
+            // Call the service - it returns Result<LocationData>
+            locationService.getCurrentLocation()
+                .onSuccess { location ->
+                    // SUCCESS: location is LocationData
 
-    fun resetLocationState() {
-        _locationError.value = false
-        _displayLocationText.value = "No location selected"
+                    // Try to get address
+                    var displayText = formatLatLong(location.latitude, location.longitude)
+
+                    locationService.reverseGeocode(location.latitude, location.longitude)
+                        .onSuccess { address ->
+                            displayText = address
+                        }
+                        .onFailure {
+                            // Keep the formatted coordinates if reverse geocode fails
+                        }
+
+                    // Update UI state with location
+                    _uiState.value = UiState.Success(
+                        LocationUiState(
+                            currentLocation = location,
+                            displayText = displayText,
+                            lastGeocodedAddress = currentState.lastGeocodedAddress
+                        )
+                    )
+                }
+                .onFailure { error ->
+                    // FAILURE: error is Throwable
+                    _uiState.value = UiState.Error(
+                        message = "Failed to get location: ${error.message}",
+                        exception = error
+                    )
+                }
+        }
     }
 
+    /**
+     * Geocode an address query (forward geocoding)
+     *
+     * Returns Result<T> for caller to handle with .onSuccess/.onFailure
+     * This gives the caller flexibility in how to handle the result
+     */
     suspend fun geocode(query: String): Result<GeocodedAddress> {
-        return geocodeCache[query]?.let { Result.success(it) }
-            ?: locationService.geocodeAddress(query).also { result ->
-                result.getOrNull()?.let { geocodeCache[query] = it }
+        // Check cache first
+        geocodeCache[query]?.let {
+            println("DEBUG: Cache hit for '$query'")
+            return Result.success(it)
+        }
+
+        println("DEBUG: Cache miss for '$query', calling API")
+
+        // Call API if not cached
+        return locationService.geocodeAddress(query)
+            .onSuccess { address ->
+                // Cache successful result
+                geocodeCache[query] = address
+                println("DEBUG: Cached result for '$query'")
             }
     }
 
     /**
-     * Get current device location
+     * Set location from coordinates
+     *
+     * already have data (not fetching),
+     * make async calls for related data
      */
-    fun fetchUserLocation() {
+    fun setLocation(latitude: Double, longitude: Double, displayText: String? = null) {
         viewModelScope.launch {
-            locationService.getCurrentLocation()
-                .onSuccess { location ->
-                    _coordinatesState.value = location
-                    _locationError.value = false
+            val currentState = getCurrentState()
+            val location = LocationData(latitude, longitude)
 
-                    // Try to get human-readable address
-                    locationService.reverseGeocode(location.latitude, location.longitude)
-                        .onSuccess { address ->
-                            _displayLocationText.value = address
-                        }
-                        .onFailure {
-                            // Fallback to coordinates
-                            _displayLocationText.value = formatLatLong(location.latitude, location.longitude)
-                        }
-                }
-                .onFailure { error ->
-                    _locationError.value = true
-                    println("Location error: ${error.message}")
-                }
+            // If no display text provided, try reverse geocode
+            var text = displayText
+            if (text == null) {
+                locationService.reverseGeocode(latitude, longitude)
+                    .onSuccess { address ->
+                        text = address
+                    }
+                    .onFailure {
+                        text = formatLatLong(latitude, longitude)
+                    }
+            }
+
+            _uiState.value = UiState.Success(
+                currentState.copy(
+                    currentLocation = location,
+                    displayText = text ?: formatLatLong(latitude, longitude)
+                )
+            )
         }
     }
 
     /**
-     * Search for a location by name/address
+     * Set location from geocoded address
+     *
+     * Direct state update
      */
-    fun selectLocation(placeName: String) {
-        viewModelScope.launch {
-            locationService.geocodeAddress(placeName)
-                .onSuccess { geocoded ->
-                    _coordinatesState.value = LocationData(
-                        latitude = geocoded.latitude,
-                        longitude = geocoded.longitude
-                    )
-                    _displayLocationText.value = geocoded.displayName
-                    _locationError.value = false
-                }
-                .onFailure { error ->
-                    _locationError.value = true
-                    println("Geocoding error: ${error.message}")
-                }
-        }
+    fun setLocationFromGeocoded(address: GeocodedAddress) {
+        val currentState = getCurrentState()
+        _uiState.value = UiState.Success(
+            currentState.copy(
+                currentLocation = LocationData(address.latitude, address.longitude),
+                displayText = address.displayName,
+                lastGeocodedAddress = address
+            )
+        )
     }
 
     /**
-     * Set location from map click (coordinates only)
+     * Reset location state
      */
-    fun setLocationFromMap(lat: Double, lon: Double) {
-        _coordinatesState.value = LocationData(lat, lon)
-
-        viewModelScope.launch {
-            // Try to get address for the coordinates
-            locationService.reverseGeocode(lat, lon)
-                .onSuccess { address ->
-                    _displayLocationText.value = address
-                }
-                .onFailure {
-                    // Fallback to coordinates
-                    _displayLocationText.value = formatLatLong(lat, lon)
-                }
-        }
+    fun resetLocationState() {
+        _uiState.value = UiState.Success(LocationUiState())
     }
 
     /**
-     * Fetch location and save wave data
-     * Used in RecordScreen when saving with location
-     */
-    fun fetchLocationAndSave(
-        sensorViewModel: SensorViewModel,
-        onSavingStarted: () -> Unit = {},
-        onSavingFinished: () -> Unit = {},
-        onSaveSuccess: () -> Unit = {}
-    ) {
-        onSavingStarted()
-
-        viewModelScope.launch {
-            locationService.getCurrentLocation()
-                .onSuccess { location ->
-                    val locationName = _displayLocationText.value
-                    sensorViewModel.setCurrentLocation(
-                        locationName,
-                        Pair(location.latitude, location.longitude)
-                    )
-
-                    // Save to Firestore
-                    sensorViewModel.saveToFirestore(
-                        onSuccess = {
-                            onSavingFinished()
-                            onSaveSuccess()
-                        },
-                        onFailure = { error ->
-                            onSavingFinished()
-                            println("Save error: ${error.message}")
-                        }
-                    )
-                }
-                .onFailure { error ->
-                    // Save without location
-                    sensorViewModel.setCurrentLocation("Unknown Location", null)
-                    sensorViewModel.saveToFirestore(
-                        onSuccess = {
-                            onSavingFinished()
-                            onSaveSuccess()
-                        },
-                        onFailure = { error ->
-                            onSavingFinished()
-                            println("Save error: ${error.message}")
-                        }
-                    )
-                }
-        }
-    }
-
-    /**
-     * Clear any error state
+     * Clear error and return to last known good state
      */
     fun clearError() {
-        _locationError.value = false
+        val currentState = getCurrentState()
+        _uiState.value = UiState.Success(currentState)
+    }
+
+    /**
+     * Clear geocode cache
+     */
+    fun clearCache() {
+        geocodeCache.clear()
+        println("DEBUG: Geocode cache cleared")
+    }
+
+    // --- Helper Methods ---
+
+    /**
+     * Safely get current LocationUiState
+     * Returns default empty state if not in Success state
+     */
+    private fun getCurrentState(): LocationUiState {
+        return (_uiState.value as? UiState.Success)?.data ?: LocationUiState()
     }
 }

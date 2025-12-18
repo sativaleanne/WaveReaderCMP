@@ -17,21 +17,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -39,14 +39,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,57 +51,40 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.maciel.wavereaderkmm.model.HistoryFilterState
 import com.maciel.wavereaderkmm.model.HistoryRecord
 import com.maciel.wavereaderkmm.model.MeasuredWaveData
 import com.maciel.wavereaderkmm.ui.components.HistoryFilterPanel
+import com.maciel.wavereaderkmm.ui.components.LoadingView
 import com.maciel.wavereaderkmm.ui.components.SnackbarHelper
 import com.maciel.wavereaderkmm.ui.graph.HistoryGraph
 import com.maciel.wavereaderkmm.utils.toDecimalString
 import com.maciel.wavereaderkmm.viewmodels.HistoryViewModel
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
+import com.maciel.wavereaderkmm.viewmodels.UiState
 
 /**
  * History Screen - View saved wave sessions
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel,
     locationViewModel: LocationViewModel,
     onBack: () -> Unit
 ) {
-    val historyData by viewModel.historyData.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val expandedItems by viewModel.expandedItems.collectAsState()
-    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
-    val selectedItems by viewModel.selectedItems.collectAsState()
+    // Collect UIState
+    val historyUiState by viewModel.uiState.collectAsState()
+
+    val historyData = (historyUiState as? UiState.Success)?.data?.historyRecords
+    println("History data: ${historyData}")
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHelper(snackbarHostState, scope) }
-
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    // Handle back button
-    BackHandler {
-        if (isSelectionMode) {
-            viewModel.clearSelection()
-        } else {
-            onBack()
-        }
-    }
-
-    // Load data on first launch
-    LaunchedEffect(Unit) {
-        viewModel.setDefaultRecentFilter()
-    }
 
     Scaffold(
         topBar = {
@@ -112,129 +92,153 @@ fun HistoryScreen(
                 title = { Text("History") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Go Back"
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    // Only show filter button when we have data
+                    if (historyUiState is UiState.Success) {
+                        DropDownFilterButton(viewModel, locationViewModel)
+                        DropDownExportButton(
+                            historyData = historyData,
+                            onExport = { format ->  // Platform-specific export will be handled
+                                snackbar.showInfo("Export to \$format")
+                            },
+                            trigger = { onClick ->
+                                IconButton(onClick = onClick) {
+                                    Icon(Icons.Default.Download, contentDescription = "Export")
+                                }
+                            }
                         )
                     }
                 }
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Selection mode top bar OR normal buttons
-            if (isSelectionMode) {
-                val selectedHistoryData = historyData.filter { it.id in selectedItems }
-                SelectionTopBar(
-                    selectedItems = selectedHistoryData,
-                    selectedCount = selectedItems.size,
-                    onCancel = { viewModel.clearSelection() },
-                    onDelete = { showDeleteDialog = true },
-                    onExport = { format ->
-                        // Platform-specific export will be handled
-                        snackbar.showInfo("Export to $format")
-                    }
-                )
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            // Exhaustive when expression
+            when (val state = historyUiState) {
+                is UiState.Loading -> {
+                    LoadingView()
+                }
 
-                // Delete confirmation dialog
-                if (showDeleteDialog) {
-                    AlertDialog(
-                        title = { Text("Delete Selected Sessions") },
-                        text = { Text("Are you sure you want to delete ${selectedItems.size} session(s)?") },
-                        onDismissRequest = { showDeleteDialog = false },
-                        confirmButton = {
-                            Button(onClick = {
-                                viewModel.deleteSelectedItems()
-                                showDeleteDialog = false
-                                snackbar.showSuccess("Deleted ${selectedItems.size} session(s)")
-                            }) {
-                                Text("Delete")
+                is UiState.Success -> {
+                    val historyState = state.data
+
+                    // Show empty state if no records after filtering
+                    if (historyState.historyRecords.isEmpty()) {
+                        EmptyHistoryView(
+                            filterState = historyState.filterState,
+                            onClearFilters = {
+                                viewModel.setDefaultRecentFilter()
+                                viewModel.refresh()
                             }
-                        },
-                        dismissButton = {
-                            OutlinedButton(onClick = { showDeleteDialog = false }) {
-                                Text("Cancel")
+                        )
+                    } else {
+                        Column {
+                            // Show active filter info
+                            if (historyState.filterState.searchLatLng != null) {
+                                ActiveFilterInfo(historyState.filterState)
                             }
-                        }
-                    )
-                }
-            } else {
-                // Normal mode - Filter and Export buttons
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    DropDownFilterButton(viewModel, locationViewModel)
-                    DropDownExportButton(
-                        historyData = historyData,
-                        onExport = { format ->
-                            snackbar.showInfo("Export to $format (coming soon)")
-                        }
-                    )
-                }
-                ActiveFilterInfo(filter = viewModel.filterState.collectAsState().value)
-            }
+                            // Selection mode toolbar
+                            if (historyState.isSelectionMode) {
+                                SelectionToolbar(
+                                    historyState.historyRecords,
+                                    selectedCount = historyState.selectedItems.size,
+                                    onCancel = { viewModel.toggleSelectionMode() },
+                                    onDeleteSelected = { viewModel.deleteSelectedRecords() },
+                                    onExport = { format ->  // Platform-specific export will be handled
+                                        snackbar.showInfo("Export to \$format")},
+                                    onSelectAll = { viewModel.selectAll() },
+                                    onDeselectAll = { viewModel.deselectAll() }
+                                )
+                            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Content: Loading / Empty / List
-            when {
-                isLoading -> {
-                    CircularProgressIndicator()
-                }
-                historyData.isEmpty() -> {
-                    // Show empty state
-                    val currentFilter by viewModel.filterState.collectAsState()
-                    EmptyHistoryState(
-                        filterState = currentFilter,
-                        onClearFilters = {
-                            viewModel.updateFilter(HistoryFilterState())
-                        }
-                    )
-                }
-                else -> {
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(
-                            items = historyData,
-                            key = { it.id }
-                        ) { record ->
-                            HistoryCard(
-                                record = record,
-                                isExpanded = expandedItems.contains(record.id),
-                                onToggle = { viewModel.toggleItemExpansion(record.id) },
-                                isSelectionMode = isSelectionMode,
-                                isSelected = selectedItems.contains(record.id),
-                                onLongClick = { viewModel.enableSelectionMode(record.id) },
-                                onClick = {
-                                    if (isSelectionMode) {
-                                        viewModel.toggleItemSelection(record.id)
-                                    } else {
-                                        viewModel.toggleItemExpansion(record.id)
-                                    }
-                                }
+                            // History list
+                            HistoryList(
+                                records = historyState.historyRecords,
+                                expandedItems = historyState.expandedItems,
+                                isSelectionMode = historyState.isSelectionMode,
+                                selectedItems = historyState.selectedItems,
+                                onItemClick = { id -> viewModel.toggleItemExpansion(id) },
+                                onItemSelect = { id -> viewModel.toggleItemSelection(id) },
+                                onItemLongClick = { viewModel.toggleSelectionMode() },
+                                onDeleteRecord = { id -> viewModel.deleteRecord(id) }
                             )
                         }
                     }
+                }
+
+                is UiState.Error -> {
+                    ErrorView(
+                        message = state.message ?: "Unknown error",
+                        onRetry = { viewModel.clearError() },
+                        onBack = onBack
+                    )
+                }
+
+                is UiState.Empty -> {
+                    EmptyHistoryView(
+                        filterState = HistoryFilterState(),
+                        onClearFilters = { viewModel.setDefaultRecentFilter()
+                        viewModel.refresh()
+                        }
+                    )
                 }
             }
         }
     }
 }
 
+/**
+ * History list component
+ */
 @Composable
-fun EmptyHistoryState(
+fun HistoryList(
+    records: List<HistoryRecord>,
+    expandedItems: Set<String>,
+    isSelectionMode: Boolean,
+    selectedItems: Set<String>,
+    onItemClick: (String) -> Unit,
+    onItemSelect: (String) -> Unit,
+    onItemLongClick: () -> Unit,
+    onDeleteRecord: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(
+            items = records,
+            key = { it.id }
+        ) { record ->
+            HistoryCard(
+                record = record,
+                isExpanded = record.id in expandedItems,
+                isSelected = record.id in selectedItems,
+                isSelectionMode = isSelectionMode,
+                onToggle = { onItemClick(record.id) },
+                onClick = {
+                    if (isSelectionMode) {
+                        onItemSelect(record.id)
+                    } else {
+                        onItemClick(record.id)
+                    }
+                },
+                onLongClick = onItemLongClick
+            )
+        }
+    }
+}
+
+/**
+ * Empty history view with filter awareness
+ */
+@Composable
+fun EmptyHistoryView(
     filterState: HistoryFilterState,
     onClearFilters: () -> Unit
 ) {
-    // Determine if any filters are active
+    // Check if any filters are active
     val hasActiveFilter = filterState.searchLatLng != null ||
             filterState.startDateMillis != null ||
             filterState.endDateMillis != null
@@ -247,7 +251,7 @@ fun EmptyHistoryState(
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            imageVector = if (hasActiveFilter) Icons.Default.FilterAlt else Icons.Default.History,
+            imageVector = Icons.Default.History,
             contentDescription = null,
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -256,7 +260,7 @@ fun EmptyHistoryState(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = if (hasActiveFilter) "No matching records found" else "No history data yet",
+            text = if (hasActiveFilter) "No matching records found" else "No history yet",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -295,44 +299,125 @@ fun EmptyHistoryState(
 }
 
 /**
- * Selection mode top bar
+ * Error view with retry option
  */
 @Composable
-fun SelectionTopBar(
-    selectedItems: List<HistoryRecord>,
+fun ErrorView(
+    message: String,
+    onRetry: () -> Unit,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Error",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.error
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row {
+            Button(onClick = onRetry) {
+                Text("Retry")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = onBack) {
+                Text("Go Back")
+            }
+        }
+    }
+}
+
+/**
+ * Selection mode toolbar
+ */
+@Composable
+fun SelectionToolbar(
+    data: List<HistoryRecord>,
     selectedCount: Int,
     onCancel: () -> Unit,
-    onDelete: () -> Unit,
-    onExport: (String) -> Unit
+    onDeleteSelected: () -> Unit,
+    onExport: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onDeselectAll: () -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        // Cancel and count
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onCancel) {
-                Icon(Icons.Default.Close, contentDescription = "Cancel Selection")
-            }
-            Text("$selectedCount selected", style = MaterialTheme.typography.titleMedium)
-        }
+        Column {
 
-        // Export and Delete buttons
-        Row {
-            DropDownExportButton(
-                historyData = selectedItems,
-                onExport = onExport,
-                trigger = { onClick ->
-                    IconButton(onClick = onClick) {
-                        Icon(Icons.Default.Download, contentDescription = "Export")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Cancel and count
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Cancel Selection")
+                    }
+                    Text(
+                        "$selectedCount selected",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
+                Row {
+                    DropDownExportButton(
+                        historyData = data,
+                        onExport = onExport,
+                        trigger = { onClick ->
+                            IconButton(onClick = onClick) {
+                                Icon(Icons.Default.Download, contentDescription = "Export")
+                            }
+                        }
+                    )
+                    IconButton(
+                        onClick = onDeleteSelected,
+                        enabled = selectedCount > 0
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
                 }
-            )
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete")
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                if (selectedCount > 0) {
+                    IconButton(onClick = onDeselectAll) {
+                        Icon(Icons.Default.Deselect, contentDescription = "Deselect All")
+                    }
+                    Text("Deselect All")
+                } else {
+                    IconButton(onClick = onSelectAll) {
+                        Icon(Icons.Default.SelectAll, contentDescription = "Select All")
+                    }
+                    Text("Select All")
+                }
             }
         }
     }
@@ -342,19 +427,20 @@ fun SelectionTopBar(
  * Filter dropdown button
  */
 @Composable
-fun DropDownFilterButton(viewModel: HistoryViewModel, locationViewModel: LocationViewModel) {
+fun DropDownFilterButton(
+    viewModel: HistoryViewModel,
+    locationViewModel: LocationViewModel
+) {
     var expanded by remember { mutableStateOf(false) }
 
+    // Get filter state from UIState
+    val uiState by viewModel.uiState.collectAsState()
+    val currentFilter = (uiState as? UiState.Success)?.data?.filterState
+        ?: HistoryFilterState()
+
     Box {
-        Button(
-            onClick = { expanded = !expanded },
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
-        ) {
-            Text("Filter")
-            Icon(
-                imageVector = if (!expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                contentDescription = "Expand"
-            )
+        IconButton(onClick = { expanded = !expanded }) {
+            Icon(Icons.Default.FilterAlt, contentDescription = "Filter")
         }
 
         DropdownMenu(
@@ -363,7 +449,8 @@ fun DropDownFilterButton(viewModel: HistoryViewModel, locationViewModel: Locatio
         ) {
             Column(Modifier.padding(12.dp)) {
                 HistoryFilterPanel(
-                    initialFilter = viewModel.filterState.collectAsState().value,
+                    historyViewModel = viewModel,
+                    initialFilter = currentFilter,
                     locationViewModel = locationViewModel,
                     onApply = {
                         viewModel.updateFilter(it)
@@ -380,7 +467,7 @@ fun DropDownFilterButton(viewModel: HistoryViewModel, locationViewModel: Locatio
  */
 @Composable
 fun DropDownExportButton(
-    historyData: List<HistoryRecord>,
+    historyData: List<HistoryRecord>?,
     onExport: (String) -> Unit,
     trigger: @Composable (onClick: () -> Unit) -> Unit = { onClick ->
         Button(
@@ -404,7 +491,7 @@ fun DropDownExportButton(
             DropdownMenuItem(
                 text = { Text("Export to JSON") },
                 onClick = {
-                    if (historyData.isNotEmpty()) {
+                    if (historyData?.isNotEmpty() == true) {
                         onExport("JSON")
                     }
                     expanded = false
@@ -413,7 +500,7 @@ fun DropDownExportButton(
             DropdownMenuItem(
                 text = { Text("Export to CSV") },
                 onClick = {
-                    if (historyData.isNotEmpty()) {
+                    if (historyData?.isNotEmpty() == true) {
                         onExport("CSV")
                     }
                     expanded = false
@@ -431,9 +518,9 @@ fun DropDownExportButton(
 fun HistoryCard(
     record: HistoryRecord,
     isExpanded: Boolean,
-    onToggle: () -> Unit,
-    isSelectionMode: Boolean,
     isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onToggle: () -> Unit,
     onLongClick: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -464,7 +551,7 @@ fun HistoryCard(
                 // Timestamp and location
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = record.timestamp,
+                        text = record.timestamp.toString(), // Format as needed
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
@@ -495,11 +582,11 @@ fun HistoryCard(
 
                 // Calculate averages
                 val avgHeight = record.dataPoints.map { it.height }.average()
-                val avgPeriod = record.dataPoints.map { it.period }.average() * 100
+                val avgPeriod = record.dataPoints.map { it.period }.average()
                 val avgDirection = record.dataPoints.map { it.direction }.average()
 
                 // Display averages
-                Text("Avg. Height: ${(avgHeight.toDecimalString(1))} ft")
+                Text("Avg. Height: ${avgHeight.toDecimalString(1)} ft")
                 Text("Avg. Period: ${avgPeriod.toDecimalString(1)} s")
                 Text("Avg. Direction: ${avgDirection.toDecimalString(1)}°")
 
@@ -526,6 +613,9 @@ fun HistoryCard(
     }
 }
 
+/**
+ * Active filter info card
+ */
 @Composable
 fun ActiveFilterInfo(filter: HistoryFilterState) {
     if (filter.searchLatLng != null) {

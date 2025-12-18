@@ -2,13 +2,16 @@ package com.maciel.wavereaderkmm.ui.components
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,6 +19,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,152 +28,153 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
+import com.maciel.wavereaderkmm.viewmodels.UiState
 import kotlinx.coroutines.launch
 
 /**
  * Reusable location search component that handles multiple input types:
  * - City names (e.g., "San Francisco")
  * - Coordinates (e.g., "37.7749, -122.4194")
- * - Zip codes (e.g., "94102")
+ * - Place names
  * - Current location via GPS
  *
+ * Works with the refactored LocationViewModel using UIState pattern
  */
 @Composable
 fun LocationSearchField(
     locationViewModel: LocationViewModel,
-    initialValue: String = "",
-    label: String = "Search for a location",
-    placeholder: String = "City, coordinates, or zip code",
-    onLocationSelected: ((lat: Double, lon: Double, displayText: String) -> Unit)? = null,
-    onTextChanged: ((String) -> Unit)? = null,
+    onLocationSelected: ((Double, Double, String) -> Unit)? = null,
     modifier: Modifier = Modifier,
-    showCurrentLocationButton: Boolean = true,
-    showClearButton: Boolean = true,
     enabled: Boolean = true
 ) {
-    var text by remember { mutableStateOf(initialValue) }
-    var isProcessing by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Collect UIState
+    val uiState by locationViewModel.uiState.collectAsState()
+
+    // Derive display state from UIState
+    val isProcessing = uiState is UiState.Loading
+    val uiErrorMessage = (uiState as? UiState.Error)?.message
+    val currentLocationData = (uiState as? UiState.Success)?.data
+
+    // Update search text when location is set
+    LaunchedEffect(currentLocationData?.displayText) {
+        currentLocationData?.displayText?.let { displayText ->
+            searchText = displayText
+        }
+    }
+
+    // React to successful location selection
+    LaunchedEffect(currentLocationData?.currentLocation) {
+        currentLocationData?.currentLocation?.let { location ->
+            errorMessage = null // Clear any previous errors
+            onLocationSelected?.invoke(
+                location.latitude,
+                location.longitude,
+                currentLocationData.displayText
+            )
+        }
+    }
+
+    // React to errors from ViewModel
+    LaunchedEffect(uiErrorMessage) {
+        uiErrorMessage?.let { errorMessage = it }
+    }
 
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedTextField(
-            value = text,
+            value = searchText,
             onValueChange = {
-                text = it
-                errorMessage = null
-                onTextChanged?.invoke(it)
+                searchText = it
+                errorMessage = null // Clear error when user types
             },
-            label = { Text(label) },
-            placeholder = { Text(placeholder) },
+            placeholder = { Text("City, address, or coordinates") },
             modifier = Modifier.weight(1f),
-            singleLine = true,
-            enabled = enabled,
+            enabled = enabled && !isProcessing,
             isError = errorMessage != null,
             supportingText = {
-                if (errorMessage != null) {
-                    Text(
-                        text = errorMessage!!,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                errorMessage?.let { Text(it) }
+            },
+            leadingIcon = {
+                IconButton(
+                    onClick = {
+                        keyboardController?.hide()
+                        if (searchText.isNotBlank()) {
+                            scope.launch {
+                                handleLocationInput(
+                                    input = searchText.trim(),
+                                    locationViewModel = locationViewModel,
+                                    onError = { error -> errorMessage = error }
+                                )
+                            }
+                        }
+                    },
+                    enabled = enabled && !isProcessing && searchText.isNotBlank()
+                ) {
+                    Icon(Icons.Default.Search, "Search")
                 }
             },
             trailingIcon = {
                 when {
                     isProcessing -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     }
-                    text.isNotEmpty() && showClearButton -> {
-                        IconButton(
-                            onClick = {
-                                text = ""
-                                errorMessage = null
-                                onTextChanged?.invoke("")
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear search"
-                            )
+                    errorMessage != null -> {
+                        IconButton(onClick = {
+                            errorMessage = null
+                            locationViewModel.clearError()
+                        }) {
+                            Icon(Icons.Default.Error, "Clear error")
+                        }
+                    }
+                    searchText.isNotEmpty() -> {
+                        IconButton(onClick = {
+                            searchText = ""
+                            locationViewModel.resetLocationState()
+                        }) {
+                            Icon(Icons.Default.Clear, "Clear")
                         }
                     }
                 }
             },
-            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Search),
+            keyboardOptions = KeyboardOptions(
+                imeAction = ImeAction.Search
+            ),
             keyboardActions = KeyboardActions(
                 onSearch = {
-                    if (text.isNotBlank()) {
+                    keyboardController?.hide()
+                    if (searchText.isNotBlank()) {
                         scope.launch {
                             handleLocationInput(
-                                input = text.trim(),
+                                input = searchText.trim(),
                                 locationViewModel = locationViewModel,
-                                onStart = { isProcessing = true },
-                                onSuccess = { lat, lon, displayText ->
-                                    isProcessing = false
-                                    errorMessage = null
-                                    text = displayText  // Update field with formatted result
-                                    onLocationSelected?.invoke(lat, lon, displayText)
-                                },
-                                onError = { error ->
-                                    isProcessing = false
-                                    errorMessage = error
-                                }
+                                onError = { error -> errorMessage = error }
                             )
                         }
                     }
                 }
-            )
+            ),
+            singleLine = true
         )
 
-        if (showCurrentLocationButton) {
-            Spacer(modifier = Modifier.width(8.dp))
-            IconButton(
-                onClick = {
-                    scope.launch {
-                        isProcessing = true
-                        errorMessage = null
+        Spacer(modifier = Modifier.width(8.dp))
 
-                        locationViewModel.fetchUserLocation()
-
-                        // Wait a bit for the async operation to complete
-                        // In a real app, you'd observe the ViewModel's StateFlow instead
-                        kotlinx.coroutines.delay(1000)
-
-                        // Get the result from ViewModel's state
-                        val coordinates = locationViewModel.coordinatesState.value
-                        val displayText = locationViewModel.displayLocationText.value
-                        val hasError = locationViewModel.locationError.value
-
-                        isProcessing = false
-
-                        if (coordinates != null && !hasError) {
-                            text = displayText
-                            onLocationSelected?.invoke(
-                                coordinates.latitude,
-                                coordinates.longitude,
-                                displayText
-                            )
-                        } else {
-                            errorMessage = "Failed to get current location"
-                        }
-                    }
-                },
-                enabled = enabled && !isProcessing
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MyLocation,
-                    contentDescription = "Use current location"
-                )
-            }
+        // Current location button
+        IconButton(
+            onClick = { locationViewModel.getCurrentLocation() },
+            enabled = enabled && !isProcessing
+        ) {
+            Icon(Icons.Default.MyLocation, "Current location")
         }
     }
 }
@@ -178,84 +184,74 @@ fun LocationSearchField(
  *
  * Supported formats:
  * - Coordinates: "37.7749, -122.4194" or "37.7749,-122.4194"
- * - US Zip codes: "94102"
  * - Place names: "San Francisco", "Golden Gate Park", etc.
+ *
+ * FIXED: Now works with LocationViewModel's UIState pattern
  */
 private suspend fun handleLocationInput(
     input: String,
     locationViewModel: LocationViewModel,
-    onStart: () -> Unit,
-    onSuccess: (lat: Double, lon: Double, displayText: String) -> Unit,
     onError: (String) -> Unit
 ) {
-    onStart()
-
     // Regex pattern for coordinates (format: lat,lon or lat, lon)
     val coordPattern = "^-?\\d+\\.?\\d*\\s*,\\s*-?\\d+\\.?\\d*$".toRegex()
 
     when {
         // Case 1: Input matches coordinate pattern
         coordPattern.matches(input) -> {
-            val parts = input.split(",").map { it.trim().toDoubleOrNull() }
-            if (parts.size == 2 && parts.all { it != null }) {
-                val lat = parts[0]!!
-                val lon = parts[1]!!
-
-                // Validate coordinate ranges
-                if (lat in -90.0..90.0 && lon in -180.0..180.0) {
-                    locationViewModel.setLocationFromMap(lat, lon)
-
-                    // Wait briefly for reverse geocoding
-                    kotlinx.coroutines.delay(500)
-
-                    val displayText = locationViewModel.displayLocationText.value
-                    onSuccess(lat, lon, displayText)
-                } else {
-                    onError("Coordinates out of valid range")
-                }
-            } else {
-                onError("Invalid coordinate format")
-            }
+            handleCoordinateInput(input, locationViewModel, onError)
         }
 
-        // Case 2: Treat as address/city/zip and geocode it
+        // Case 2: Treat as address/city and geocode it
         else -> {
-            geocodeLocation(input, locationViewModel, onSuccess, onError)
+            handleGeocodeInput(input, locationViewModel, onError)
         }
     }
 }
 
 /**
- * Geocode a location query using LocationViewModel.
- *
- * This handles:
- * - City names: "San Francisco"
- * - Addresses: "1600 Amphitheatre Parkway, Mountain View"
- * - Zip codes: "94102"
+ * Handle direct coordinate input
  */
-private suspend fun geocodeLocation(
-    query: String,
+private fun handleCoordinateInput(
+    input: String,
     locationViewModel: LocationViewModel,
-    onSuccess: (lat: Double, lon: Double, displayText: String) -> Unit,
     onError: (String) -> Unit
 ) {
-    locationViewModel.selectLocation(query)
+    val parts = input.split(",").map { it.trim().toDoubleOrNull() }
 
-    // Wait briefly for geocoding to complete
-    kotlinx.coroutines.delay(500)
+    if (parts.size == 2 && parts.all { it != null }) {
+        val lat = parts[0]!!
+        val lon = parts[1]!!
 
-    // Check ViewModel state for results
-    val coordinates = locationViewModel.coordinatesState.value
-    val displayText = locationViewModel.displayLocationText.value
-    val hasError = locationViewModel.locationError.value
-
-    if (coordinates != null && !hasError) {
-        onSuccess(
-            coordinates.latitude,
-            coordinates.longitude,
-            displayText
-        )
+        // Validate coordinate ranges
+        if (lat in -90.0..90.0 && lon in -180.0..180.0) {
+            // Set location directly with coordinates
+            locationViewModel.setLocation(lat, lon)
+        } else {
+            onError("Coordinates out of valid range (lat: -90 to 90, lon: -180 to 180)")
+        }
     } else {
-        onError("Location not found")
+        onError("Invalid coordinate format. Use: latitude, longitude")
     }
+}
+
+/**
+ * Handle geocoding of place names, addresses, etc.
+ *
+ * FIXED: Now properly uses the new LocationViewModel API
+ */
+private suspend fun handleGeocodeInput(
+    query: String,
+    locationViewModel: LocationViewModel,
+    onError: (String) -> Unit
+) {
+    // Call geocode method which returns Result<GeocodedAddress>
+    locationViewModel.geocode(query)
+        .onSuccess { geocodedAddress ->
+            // Set location using the geocoded address
+            locationViewModel.setLocationFromGeocoded(geocodedAddress)
+        }
+        .onFailure { error ->
+            onError("Location not found: ${error.message ?: "Unknown error"}")
+        }
 }

@@ -31,9 +31,9 @@ import platform.MapKit.MKPointAnnotation
 @Composable
 actual fun MapView(
     locationViewModel: LocationViewModel,
+    coordinates: LocationData?,
     modifier: Modifier
 ) {
-    val coordinates by locationViewModel.coordinatesState.collectAsState()
     val currentAnnotation = remember { mutableListOf<MKPointAnnotation>() }
 
     UIKitView(

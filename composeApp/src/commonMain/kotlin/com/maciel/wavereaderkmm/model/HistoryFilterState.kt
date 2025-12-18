@@ -3,7 +3,8 @@ package com.maciel.wavereaderkmm.model
 
 enum class SortOrder {
     DATE_ASCENDING,
-    DATE_DESCENDING
+    DATE_DESCENDING,
+    LOCATION_NAME
 }
 
 data class HistoryFilterState(

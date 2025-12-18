@@ -13,5 +13,6 @@ import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 @Composable
 expect fun MapView(
     locationViewModel: LocationViewModel,
+    coordinates: LocationData?,
     modifier: Modifier = Modifier
 )

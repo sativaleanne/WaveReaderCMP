@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 data class HistoryRecord(
     val id: String,
     val timestamp: String,
+    val timestampMillis: Long,
     val location: String,
     val lat: Double? = null,
     val lon: Double? = null,

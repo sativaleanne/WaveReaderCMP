@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -148,4 +149,25 @@ fun AlertConfirm(
             }
         }
     )
+}
+
+/**
+ * Loading view
+ */
+@Composable
+fun LoadingView(textLoad: String = "Loading...") {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator()
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = textLoad,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
 }

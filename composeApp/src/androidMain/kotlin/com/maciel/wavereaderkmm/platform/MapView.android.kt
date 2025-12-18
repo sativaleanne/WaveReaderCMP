@@ -14,6 +14,7 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
+import com.google.maps.android.compose.rememberUpdatedMarkerState
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 
 /**
@@ -35,11 +36,11 @@ import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 @Composable
 actual fun MapView(
     locationViewModel: LocationViewModel,
+    coordinates: LocationData?,
     modifier: Modifier
 ) {
-    val coordinates by locationViewModel.coordinatesState.collectAsState()
     val cameraPositionState = rememberCameraPositionState()
-    val markerState = rememberMarkerState(position = LatLng(0.0, 0.0))
+    val markerState = rememberUpdatedMarkerState(position = LatLng(0.0, 0.0))
 
     // Check if permission is granted
     val isPermissionGranted = LocationPermissionChecker.isGrantedComposable()
@@ -56,7 +57,7 @@ actual fun MapView(
         // Fetch user location when permission is granted
         LaunchedEffect(isPermissionGranted) {
             if (isPermissionGranted) {
-                locationViewModel.fetchUserLocation()
+                locationViewModel.getCurrentLocation()
             }
         }
 
@@ -89,9 +90,9 @@ actual fun MapView(
             ),
             onMapClick = { latLng ->
                 // User tapped on map - update selected location
-                locationViewModel.setLocationFromMap(
-                    lat = latLng.latitude,
-                    lon = latLng.longitude
+                locationViewModel.setLocation(
+                    latitude = latLng.latitude,
+                    longitude = latLng.longitude
                 )
             }
         ) {

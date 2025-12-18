@@ -106,6 +106,7 @@ actual class FirestoreRepository {
                     HistoryRecord(
                         id = document.id,
                         timestamp = formatDateTime(timestampMillis),
+                        timestampMillis = timestampMillis,
                         location = location,
                         lat = document.getDouble("lat"),
                         lon = document.getDouble("lon"),

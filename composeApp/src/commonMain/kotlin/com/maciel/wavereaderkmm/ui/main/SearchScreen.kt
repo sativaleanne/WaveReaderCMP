@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -39,7 +40,9 @@ import androidx.compose.ui.unit.dp
 import com.maciel.wavereaderkmm.model.ApiVariable
 import com.maciel.wavereaderkmm.model.WaveApiQuery
 import com.maciel.wavereaderkmm.model.WaveDataResponse
+import com.maciel.wavereaderkmm.platform.LocationData
 import com.maciel.wavereaderkmm.platform.MapView
+import com.maciel.wavereaderkmm.ui.components.LoadingView
 import com.maciel.wavereaderkmm.ui.components.LocationSearchField
 import com.maciel.wavereaderkmm.ui.components.WaveDataCard
 import com.maciel.wavereaderkmm.ui.graph.ServiceGraph
@@ -52,18 +55,22 @@ import wavereaderkmm.composeapp.generated.resources.loading_failed_text
 
 /**
  * Search Screen for retrieving wave data by location
+ *
  */
 @Composable
 fun SearchDataScreen(
     locationViewModel: LocationViewModel,
     serviceViewModel: ServiceViewModel
 ) {
+    val serviceUiState by serviceViewModel.serviceUiState.collectAsState()
+    val locationUiState by locationViewModel.uiState.collectAsState()
 
-    val uiState by serviceViewModel.serviceUiState.collectAsState()
-    val coordinates by locationViewModel.coordinatesState.collectAsState()
-    val displayLocation by locationViewModel.displayLocationText.collectAsState()
+    val locationData = (locationUiState as? UiState.Success)?.data
+    val coordinates = locationData?.currentLocation
+    val displayLocation = locationData?.displayText ?: "No location selected"
+
+    // Local UI state
     var isMapExpanded by remember { mutableStateOf(false) }
-
 
     Column(
         modifier = Modifier
@@ -73,39 +80,76 @@ fun SearchDataScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Location Search Component
         LocationSearchField(
             locationViewModel = locationViewModel,
-            label = "Search for a location",
-            placeholder = "City, coordinates, or zip code",
             onLocationSelected = { lat, lon, displayText ->
-                // Location automatically updates in LocationViewModel
                 println("Selected: $displayText at ($lat, $lon)")
             },
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Display Location info
-        Text(
-            text = "Location: $displayLocation",
-            style = MaterialTheme.typography.labelMedium
-        )
+        when (locationUiState) {
+            is UiState.Loading -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Getting location...",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
 
-        // Expandable Map Display Card
+            is UiState.Error -> {
+                Text(
+                    text = "Location error: ${(locationUiState as UiState.Error).message}",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            is UiState.Success -> {
+                // Show location info when available
+                Text(
+                    text = "Location: $displayLocation",
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+
+            is UiState.Empty -> {
+                Text(
+                    text = "No location selected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         ExpandableMapCard(
+            locationViewModel = locationViewModel,
             isExpanded = isMapExpanded,
             onToggleExpanded = { isMapExpanded = !isMapExpanded },
-            locationViewModel = locationViewModel
+            currentLocation = coordinates,
+            displayText = displayLocation
         )
 
         SearchButton(
-            uiState = uiState,
+            uiState = serviceUiState,
             hasCoordinates = coordinates != null,
             onClick = {
-                coordinates?.let { (lat, lon) ->
+                // Safely get coordinates from LocationUiState
+                val location = (locationUiState as? UiState.Success)
+                    ?.data
+                    ?.currentLocation
+
+                location?.let { loc ->
                     val query = WaveApiQuery(
-                        latitude = lat,
-                        longitude = lon,
+                        latitude = loc.latitude,
+                        longitude = loc.longitude,
                         variables = setOf(
                             ApiVariable.WaveHeight,
                             ApiVariable.WavePeriod,
@@ -118,8 +162,9 @@ fun SearchDataScreen(
             }
         )
 
-        when (val state = uiState) {
-            is UiState.Loading -> LoadingView()
+        // Wave data display (ServiceViewModel already uses UiState correctly)
+        when (val state = serviceUiState) {
+            is UiState.Loading -> LoadingView("Loading data...")
 
             is UiState.Success -> WaveDataDisplay(
                 waveData = state.data,
@@ -129,7 +174,7 @@ fun SearchDataScreen(
 
             is UiState.Error -> ErrorView(
                 message = state.message ?: "Unknown error",
-                onRetry = { serviceViewModel.reset() },
+                onRetry = { serviceViewModel.reset() }
             )
 
             is UiState.Empty -> EmptyStateView()
@@ -137,6 +182,9 @@ fun SearchDataScreen(
     }
 }
 
+/**
+ * Search button with loading and enabled states
+ */
 @Composable
 fun SearchButton(
     hasCoordinates: Boolean,
@@ -146,13 +194,11 @@ fun SearchButton(
     val isLoading = uiState is UiState.Loading
     val isEnabled = uiState is UiState.Empty && hasCoordinates
 
-
-
     Button(
         onClick = onClick,
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp),
         enabled = isEnabled,
-        modifier = Modifier.fillMaxWidth(0.6f) // Make it a bit wider for better visibility
+        modifier = Modifier.fillMaxWidth(0.6f)
     ) {
         if (isLoading) {
             // Show loading indicator while searching
@@ -169,7 +215,7 @@ fun SearchButton(
                 Text("Searching...")
             }
         } else {
-            // Show search text with icon
+            // Show search text
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -177,13 +223,13 @@ fun SearchButton(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(14.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 if (isEnabled) {
                     Text("Search Wave Data")
                 } else {
-                    Text("No location selected")
+                    Text("Select location first")
                 }
             }
         }
@@ -192,12 +238,15 @@ fun SearchButton(
 
 /**
  * Expandable Map Card
+ *
  */
 @Composable
 fun ExpandableMapCard(
+    locationViewModel: LocationViewModel,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
-    locationViewModel: LocationViewModel
+    currentLocation: LocationData?,
+    displayText: String
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -218,7 +267,7 @@ fun ExpandableMapCard(
                 )
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = "Expand Button"
+                    contentDescription = if (isExpanded) "Collapse" else "Expand"
                 )
             }
 
@@ -228,9 +277,9 @@ fun ExpandableMapCard(
                     .height(if (isExpanded) 320.dp else 120.dp)
                     .padding(top = 8.dp)
             ) {
-                // Platform-specific map (expect/actual)
                 MapView(
                     locationViewModel = locationViewModel,
+                    coordinates = currentLocation,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -259,6 +308,7 @@ fun WaveDataDisplay(
                 fontWeight = FontWeight.Bold
             )
         }
+
         Button(onClick = onRetry) {
             Text("New Search")
         }
@@ -266,7 +316,7 @@ fun WaveDataDisplay(
         Column(modifier = Modifier.padding(16.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 WaveDataCard(
-                    "Current Conditions at $locationText",
+                    title = "Current Conditions at $locationText",
                     values = listOf(
                         waveData.current?.waveHeight,
                         waveData.current?.wavePeriod,
@@ -282,10 +332,14 @@ fun WaveDataDisplay(
                 if (hourly?.time?.isNotEmpty() == true) {
                     ServiceGraph(hourly)
                 } else {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                    Text("No graph data available.")
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("No graph data available.")
+                    }
                 }
             }
 
@@ -294,15 +348,7 @@ fun WaveDataDisplay(
     }
 }
 
-/**
- * Loading screen
- */
-@Composable
-fun LoadingView() {
-    CircularProgressIndicator(
-        modifier = Modifier.padding(16.dp)
-    )
-}
+
 
 /**
  * Error screen
@@ -314,22 +360,47 @@ fun ErrorView(
     onRetry: () -> Unit
 ) {
     Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = message ?: stringResource(Res.string.loading_failed_text),
-            modifier = Modifier.padding(16.dp)
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(bottom = 16.dp)
         )
+
+        Button(onClick = onRetry) {
+            Text("Try Again")
+        }
     }
 }
 
+/**
+ * Empty state when no location selected
+ */
 @Composable
 fun EmptyStateView() {
-    Text(
-        text = "Please select a location to search",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error,
-        modifier = Modifier.padding(top = 4.dp)
-    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Search for a location to get wave data",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }

@@ -94,6 +94,7 @@ actual class FirestoreRepository {
                             HistoryRecord(
                                 id = id,
                                 timestamp = formattedTimestamp,
+                                timestampMillis = timestamp,
                                 location = location,
                                 lat = session["lat"] as? Double,
                                 lon = session["lon"] as? Double,
