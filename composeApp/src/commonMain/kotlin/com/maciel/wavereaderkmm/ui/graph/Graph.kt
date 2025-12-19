@@ -55,8 +55,7 @@ fun Graph(
     timeLabels: List<String>,
     isInteractive: Boolean = true,
     isScrollable: Boolean = false,
-    isXLabeled: Boolean = true,
-    forecastIndex: Int = -1
+    isXLabeled: Boolean = true
 ) {
     var scrollOffset by remember { mutableFloatStateOf(0f) }
     var canvasWidth by remember { mutableFloatStateOf(0f) }
@@ -160,10 +159,6 @@ fun Graph(
                         )
 
                         drawCoordinate(selectedIndex, dataPointCount, pointSpacing)
-
-                        if (forecastIndex != -1) {
-                            drawForecastLine(forecastIndex, pointSpacing)
-                        }
 
                         if (isScrollable) drawContext.canvas.restore()
                     }

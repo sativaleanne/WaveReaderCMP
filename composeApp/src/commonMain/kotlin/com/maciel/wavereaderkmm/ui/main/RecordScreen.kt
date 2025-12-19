@@ -115,15 +115,14 @@ fun RecordDataScreen(
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Collecting data...",
+                    text = "Collecting data... Keep phone stationary for best results.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
 
             if (uiState.measuredWaveList.isNotEmpty()) {
                 WaveDataDisplay(
-                    uiState = uiState,
-                    viewModel = sensorViewModel
+                    uiState = uiState
                 )
             }
 
@@ -231,12 +230,9 @@ private fun SavingIndicator() {
  */
 @Composable
 private fun WaveDataDisplay(
-    uiState: WaveUiState,
-    viewModel: SensorViewModel
+    uiState: WaveUiState
 ) {
     var displayOptions by remember { mutableStateOf(GraphDisplayOptions()) }
-    val confidence by viewModel.bigWaveConfidence.collectAsState()
-
     Column(
         modifier = Modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -245,7 +241,7 @@ private fun WaveDataDisplay(
             title = "Current Conditions",
             values = listOf(uiState.height, uiState.period, uiState.direction),
             labels = listOf("Height", "Period", "Direction"),
-            units = listOf("ft", "s", "°")
+            units = listOf("m", "s", "°")
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -267,7 +263,6 @@ private fun WaveDataDisplay(
 /**
  * Action buttons for record/save/clear
  *
- * ✅ REFACTORED: Now properly orchestrates location fetch and save
  */
 @Composable
 private fun ActionButtons(
@@ -280,10 +275,10 @@ private fun ActionButtons(
     var isFetchingLocationForSave by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // ✅ NEW: Collect location state
+    // Collect location state
     val locationUiState by locationViewModel.uiState.collectAsState()
 
-    // ✅ NEW: Handle save flow when location is ready
+    // Handle save flow when location is ready
     LaunchedEffect(locationUiState, isFetchingLocationForSave) {
         if (!isFetchingLocationForSave) return@LaunchedEffect
 
@@ -353,7 +348,7 @@ private fun ActionButtons(
         if (!isGuest) {
             Button(
                 onClick = {
-                    // ✅ NEW: Trigger location fetch and save
+                    // Trigger location fetch and save
                     scope.launch {
                         isFetchingLocationForSave = true
                         locationViewModel.getCurrentLocation()

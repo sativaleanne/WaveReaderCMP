@@ -16,7 +16,7 @@ fun ServiceGraph(waveData: Hourly) {
     // Create graph lines for all available data
     val lines = listOfNotNull(
         waveData.waveHeight?.let {
-            GraphLine(it.filterNotNull(), "Wave Height", Color.Blue, "ft")
+            GraphLine(it.filterNotNull(), "Wave Height", Color.Blue, "m")
         },
         waveData.wavePeriod?.let {
             GraphLine(it.filterNotNull(), "Wave Period", Color(0xFF008a8a), "s")
@@ -25,7 +25,7 @@ fun ServiceGraph(waveData: Hourly) {
             GraphLine(it.filterNotNull(), "Wave Direction", Color(0xFF288041), "°")
         },
         waveData.windWaveHeight?.let {
-            GraphLine(it.filterNotNull(), "Wind Height", Color.Red, "ft")
+            GraphLine(it.filterNotNull(), "Wind Height", Color.Red, "m")
         },
         waveData.windWavePeriod?.let {
             GraphLine(it.filterNotNull(), "Wind Period", Color.Magenta, "s")
@@ -34,7 +34,7 @@ fun ServiceGraph(waveData: Hourly) {
             GraphLine(it.filterNotNull(), "Wind Direction", Color.Black, "°")
         },
         waveData.swellWaveHeight?.let {
-            GraphLine(it.filterNotNull(), "Swell Height", Color.Yellow, "ft")
+            GraphLine(it.filterNotNull(), "Swell Height", Color.Yellow, "m")
         },
         waveData.swellWavePeriod?.let {
             GraphLine(it.filterNotNull(), "Swell Period", Color.LightGray, "s")

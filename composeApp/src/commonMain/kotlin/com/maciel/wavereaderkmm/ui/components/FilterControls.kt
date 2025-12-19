@@ -102,20 +102,6 @@ fun DropDownFilterGraphView(
                         onCheckedChange = { onUpdate(displayOptions.copy(showDirection = it)) }
                     )
                 }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Next Big Wave", style = MaterialTheme.typography.bodyMedium)
-                    Switch(
-                        checked = displayOptions.showForecast,
-                        onCheckedChange = { onUpdate(displayOptions.copy(showForecast = it)) }
-                    )
-                }
             }
         }
     }

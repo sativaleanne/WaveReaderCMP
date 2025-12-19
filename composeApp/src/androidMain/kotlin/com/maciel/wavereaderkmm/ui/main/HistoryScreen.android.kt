@@ -194,8 +194,7 @@ actual fun HistoryScreen(
                                 selectedItems = historyState.selectedItems,
                                 onItemClick = { id -> viewModel.toggleItemExpansion(id) },
                                 onItemSelect = { id -> viewModel.toggleItemSelection(id) },
-                                onItemLongClick = { viewModel.toggleSelectionMode() },
-                                onDeleteRecord = { id -> viewModel.deleteRecord(id) }
+                                onItemLongClick = { viewModel.toggleSelectionMode() }
                             )
 
                             // SMART EXPORT DIALOG with Android SAF integration

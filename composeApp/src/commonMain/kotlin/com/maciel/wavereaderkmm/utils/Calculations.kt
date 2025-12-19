@@ -103,14 +103,14 @@ fun calculateWaveDirection(accelX: List<Float>, accelY: List<Float>): Float {
 // Converts FFT output into a power spectrum (density per frequency band)
 fun computeSpectralDensity(fft: FloatArray, n: Int, samplingRate: Float): List<Float> {
     val halfN = n / 2
-    val dt = 1.0f / samplingRate  // ← ADD THIS
+    val dt = 1.0f / samplingRate
 
     return (0 until halfN).map { i ->
         val re = fft[2 * i]
         val im = fft[2 * i + 1]
         val magnitude = re * re + im * im
-        // CORRECT: dividing by (n * Δt)
-        magnitude / (n * dt)  // ← CHANGE THIS
+        // dividing by (n * Δt)
+        magnitude / (n * dt)
     }
 }
 
@@ -131,7 +131,6 @@ fun calculateSpectralMoments(
 
         var S = spectrum[i]
 
-        // ← ADD THIS CONVERSION
         // Convert acceleration PSD to displacement PSD
         if (isAccelerationSpectrum && f > 0f) {
             val omega = 2.0f * PI.toFloat() * f  // Radian frequency
@@ -155,22 +154,107 @@ fun computeWaveMetricsFromSpectrum(m0: Float, m1: Float, m2: Float): Triple<Floa
 }
 
 // Estimate zero-crossing period
-fun estimateZeroCrossingPeriod(signal: List<Float>, samplingRate: Float): Float {
-    val zeroCrossings = mutableListOf<Int>()
+fun estimateZeroCrossingPeriod(
+    accelerationSignal: List<Float>,
+    samplingRate: Float
+): Float {
+    if (accelerationSignal.size < 128) {
+        return Float.NaN  // Need sufficient data
+    }
 
-    for (i in 1 until signal.size) {
-        val prev = signal[i - 1]
-        val curr = signal[i]
-        if (prev < 0 && curr >= 0) {  // upward zero-crossing
+    // Step 1: Prepare data - use power-of-2 size
+    val n = accelerationSignal.size.takeHighestOneBit()  // Nearest power of 2
+    val signal = accelerationSignal.take(n)
+
+    // Step 2: Apply Hanning window to reduce spectral leakage
+    val windowed = hanningWindow(signal)
+
+    // Step 3: FFT to frequency domain
+    val fft = getFft(windowed, n)
+    val df = samplingRate / n
+
+    // Step 4: Integrate twice in frequency domain (acceleration → displacement)
+    // Division by (2πf)² for each integration
+    val displacementFFT = FloatArray(fft.size)
+
+    for (i in 1 until n/2) {  // Skip DC component (i=0)
+        val f = i * df
+
+        // Only process wave frequencies (0.05 - 0.5 Hz)
+        // Below 0.05 Hz: avoid division by very small numbers
+        // Above 0.5 Hz: typically noise for ocean waves
+        if (f !in 0.05f..0.5f) {
+            displacementFFT[2*i] = 0f
+            displacementFFT[2*i + 1] = 0f
+            continue
+        }
+
+        val omega = 2.0f * PI.toFloat() * f
+        val integrationFactor = 1.0f / (omega * omega)  // Divide by ω² for acceleration→displacement
+
+        // Apply integration to both real and imaginary parts
+        displacementFFT[2*i] = fft[2*i] * integrationFactor
+        displacementFFT[2*i + 1] = fft[2*i + 1] * integrationFactor
+
+        // Mirror for negative frequencies (Hermitian symmetry for real signal)
+        if (i < n/2) {
+            displacementFFT[2*(n-i)] = displacementFFT[2*i]
+            displacementFFT[2*(n-i) + 1] = -displacementFFT[2*i + 1]
+        }
+    }
+
+    // Step 5: Inverse FFT to get displacement in time domain
+    val displacement = getIfft(displacementFFT, n)
+
+    // Step 6: Remove mean (detrend)
+    val mean = displacement.average().toFloat()
+    val detrendedDisplacement = displacement.map { it - mean }
+
+    // Step 7: Find upward zero-crossings (negative to positive)
+    val zeroCrossings = mutableListOf<Int>()
+    for (i in 1 until detrendedDisplacement.size) {
+        val prev = detrendedDisplacement[i - 1]
+        val curr = detrendedDisplacement[i]
+
+        // Upward zero-crossing
+        if (prev < 0 && curr >= 0) {
             zeroCrossings.add(i)
         }
     }
 
-    if (zeroCrossings.size < 2) return Float.NaN
+    // Step 8: Calculate average period from zero-crossing intervals
+    if (zeroCrossings.size < 2) {
+        return Float.NaN  // Need at least 2 crossings
+    }
 
+    // Calculate intervals between consecutive zero-crossings
     val intervals = zeroCrossings.zipWithNext { a, b -> b - a }
-    val averageSamples = intervals.average().toFloat()
-    return averageSamples / samplingRate  // period in seconds
+
+    // Remove outliers (intervals outside 2-25 seconds for realistic ocean waves)
+    val minSamples = (2.0f * samplingRate).toInt()  // 2 seconds
+    val maxSamples = (25.0f * samplingRate).toInt()  // 25 seconds
+    val validIntervals = intervals.filter { it in minSamples..maxSamples }
+
+    if (validIntervals.isEmpty()) {
+        return Float.NaN
+    }
+
+    // Average interval in samples, convert to seconds
+    val averageSamples = validIntervals.average().toFloat()
+    return averageSamples / samplingRate
+}
+
+/**
+ * Helper extension function to get the highest one-bit (nearest power of 2, rounded down)
+ */
+private fun Int.takeHighestOneBit(): Int {
+    var n = this
+    n = n or (n shr 1)
+    n = n or (n shr 2)
+    n = n or (n shr 4)
+    n = n or (n shr 8)
+    n = n or (n shr 16)
+    return n - (n shr 1)
 }
 
 // High-pass filter to remove drift

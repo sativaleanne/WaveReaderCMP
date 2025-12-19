@@ -63,205 +63,6 @@ expect fun HistoryScreen(
     onBack: () -> Unit
 )
 
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun HistoryScreen(
-//    viewModel: HistoryViewModel,
-//    locationViewModel: LocationViewModel,
-//    onBack: () -> Unit
-//) {
-//    // Collect UIState
-//    val uiState by viewModel.uiState.collectAsState()
-//
-//    var showExportDialog by remember { mutableStateOf(false) }
-//
-//    val snackbarHostState = remember { SnackbarHostState() }
-//    val scope = rememberCoroutineScope()
-//    val snackbar = remember { SnackbarHelper(snackbarHostState, scope) }
-//
-//    Scaffold(
-//        topBar = {
-//            if (uiState is UiState.Success && !(uiState as UiState.Success).data.isSelectionMode) {
-//                TopAppBar(
-//                    title = { Text("History") },
-//                    navigationIcon = {
-//                        IconButton(onClick = onBack) {
-//                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-//                        }
-//                    },
-//                    actions = {
-//                        // Only show filter button when we have data
-//                        DropDownFilterButton(viewModel, locationViewModel)
-//                        IconButton(onClick = { showExportDialog = true }) {
-//                            Icon(
-//                                imageVector = Icons.Default.Download,
-//                                contentDescription = "Export all visible records"
-//                            )
-//                        }
-//                    }
-//                )
-//            }
-//            // Selection mode top app bar (shown when IN selection mode)
-//            if (uiState is UiState.Success && (uiState as UiState.Success).data.isSelectionMode) {
-//                val selectedCount = (uiState as UiState.Success).data.selectedItems.size
-//                TopAppBar(
-//                    title = { Text("$selectedCount selected") },
-//                    navigationIcon = {
-//                        IconButton(onClick = { viewModel.toggleSelectionMode() }) {
-//                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit selection mode")
-//                        }
-//                    },
-//                    actions = {
-//                        // EXPORT SELECTED BUTTON - in selection bar
-//                        IconButton(
-//                            onClick = { showExportDialog = true },
-//                            enabled = selectedCount > 0
-//                        ) {
-//                            Icon(
-//                                imageVector = Icons.Default.Download,
-//                                contentDescription = "Export selected records"
-//                            )
-//                        }
-//
-//                        // Delete selected button
-//                        IconButton(
-//                            onClick = { viewModel.deleteSelectedRecords() },
-//                            enabled = selectedCount > 0
-//                        ) {
-//                            Icon(Icons.Default.Delete, contentDescription = "Delete selected")
-//                        }
-//
-//                        // Select all button
-//                        IconButton(onClick = { if (selectedCount > 0) {viewModel.deselectAll()} else {viewModel.selectAll()} }) {
-//                            if (selectedCount > 0) {
-//                                Icon(Icons.Default.Deselect, contentDescription = "Deselect all")
-//                            } else {
-//                                Icon(Icons.Default.SelectAll, contentDescription = "Select all")
-//                            }
-//                        }
-//                    }
-//                )
-//            }
-//        }
-//    ) { paddingValues ->
-//        Box(modifier = Modifier.padding(paddingValues)) {
-//            // Exhaustive when expression
-//            when (val state = uiState) {
-//                is UiState.Loading -> {
-//                    LoadingView()
-//                }
-//
-//                is UiState.Success -> {
-//                    val historyState = state.data
-//
-//                    // Show empty state if no records after filtering
-//                    if (historyState.historyRecords.isEmpty()) {
-//                        EmptyHistoryView(
-//                            filterState = historyState.filterState,
-//                            onClearFilters = {
-//                                viewModel.setDefaultRecentFilter()
-//                                viewModel.refresh()
-//                            }
-//                        )
-//                    } else {
-//                        Column {
-//                            // Show active filter info
-//                            if (historyState.filterState.searchLatLng != null) {
-//                                ActiveFilterInfo(historyState.filterState)
-//                            }
-//                            // History list
-//                            HistoryList(
-//                                records = historyState.historyRecords,
-//                                expandedItems = historyState.expandedItems,
-//                                isSelectionMode = historyState.isSelectionMode,
-//                                selectedItems = historyState.selectedItems,
-//                                onItemClick = { id -> viewModel.toggleItemExpansion(id) },
-//                                onItemSelect = { id -> viewModel.toggleItemSelection(id) },
-//                                onItemLongClick = { viewModel.toggleSelectionMode() },
-//                                onDeleteRecord = { id -> viewModel.deleteRecord(id) }
-//                            )
-//
-//                            // This automatically handles both "export all" and "export selected"
-//                            SmartExportDialog(
-//                                showDialog = showExportDialog,
-//                                isSelectionMode = historyState.isSelectionMode,
-//                                selectedCount = historyState.selectedItems.size,
-//                                allVisibleCount = historyState.historyRecords.size,
-//                                onDismiss = { showExportDialog = false },
-//
-//                                // Export SELECTED as CSV
-//                                onExportSelectedCsv = {
-//                                    viewModel.exportSelectedToCsv(
-//                                        onSuccess = { message ->
-//                                            snackbar.showSuccess(message)
-//                                        },
-//                                        onFailure = { error ->
-//                                            snackbar.showError(error)
-//                                        }
-//                                    )
-//                                },
-//
-//                                // Export SELECTED as JSON
-//                                onExportSelectedJson = {
-//                                    viewModel.exportSelectedToJson(
-//                                        onSuccess = { message ->
-//                                            snackbar.showSuccess(message)
-//                                        },
-//                                        onFailure = { error ->
-//                                            snackbar.showError(error)
-//                                        }
-//                                    )
-//                                },
-//
-//                                // Export ALL as CSV
-//                                onExportAllCsv = {
-//                                    viewModel.exportAllToCsv(
-//                                        onSuccess = { message ->
-//                                            snackbar.showSuccess(message)
-//                                        },
-//                                        onFailure = { error ->
-//                                            snackbar.showError(error)
-//                                        }
-//                                    )
-//                                },
-//
-//                                // Export ALL as JSON
-//                                onExportAllJson = {
-//                                    viewModel.exportAllToJson(
-//                                        onSuccess = { message ->
-//                                            snackbar.showSuccess(message)
-//                                        },
-//                                        onFailure = { error ->
-//                                            snackbar.showError(error)
-//                                        }
-//                                    )
-//                                }
-//                            )
-//                        }
-//                    }
-//                }
-//
-//                is UiState.Error -> {
-//                    ErrorView(
-//                        message = state.message ?: "Unknown error",
-//                        onRetry = { viewModel.clearError() },
-//                        onBack = onBack
-//                    )
-//                }
-//
-//                is UiState.Empty -> {
-//                    EmptyHistoryView(
-//                        filterState = HistoryFilterState(),
-//                        onClearFilters = { viewModel.setDefaultRecentFilter()
-//                        viewModel.refresh()
-//                        }
-//                    )
-//                }
-//            }
-//        }
-//    }
-//}
-
 /**
  * History list component
  */
@@ -273,8 +74,7 @@ fun HistoryList(
     selectedItems: Set<String>,
     onItemClick: (String) -> Unit,
     onItemSelect: (String) -> Unit,
-    onItemLongClick: () -> Unit,
-    onDeleteRecord: (String) -> Unit
+    onItemLongClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize()
@@ -529,7 +329,7 @@ fun HistoryCard(
                 val avgDirection = record.dataPoints.map { it.direction }.average()
 
                 // Display averages
-                Text("Avg. Height: ${avgHeight.toDecimalString(1)} ft")
+                Text("Avg. Height: ${avgHeight.toDecimalString(1)} m")
                 Text("Avg. Period: ${avgPeriod.toDecimalString(1)} s")
                 Text("Avg. Direction: ${avgDirection.toDecimalString(1)}°")
 

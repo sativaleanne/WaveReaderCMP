@@ -12,6 +12,7 @@ import com.maciel.wavereaderkmm.utils.medianFilter
 import com.maciel.wavereaderkmm.utils.movingAverage
 import com.maciel.wavereaderkmm.utils.smoothOutput
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
@@ -60,6 +61,11 @@ class WaveDataProcessor {
             //return Triple(0f, 0f, 0f)
         }
 
+        if (!isActualMotion(verticalAcceleration)) {
+            println("Phone appears stationary - no wave processing")
+            return Triple(0f, 0f, 0f)
+        }
+
         val windowSize = 1024
         val stepSize = 512
 
@@ -75,7 +81,7 @@ class WaveDataProcessor {
         for (segment in segments) {
             // Reject extremely high or low windows
             val rms = sqrt(segment.sumOf { it.toDouble() * it.toDouble() } / segment.size)
-            if (rms < 0.003f) {
+            if (rms < 0.01f) {
                 println("Segment RMS too low: $rms m/s²")
                 continue
             }
@@ -88,10 +94,8 @@ class WaveDataProcessor {
             // Median filter to remove noise
             val medianed = medianFilter(segment, 5)
 
-            // Smoothing
             val smoothed = movingAverage(medianed, 5)
 
-            // Windowing
             val windowed = hanningWindow(smoothed)
 
             // Compute frequency-domain features
@@ -108,24 +112,18 @@ class WaveDataProcessor {
             val (sigWaveHeight, avePeriod, spectralZeroCrossPeriod) = computeWaveMetricsFromSpectrum(m0, m1, m2)
             val measuredZeroCrossPeriod = estimateZeroCrossingPeriod(segment, samplingRate)
 
-            val finalPeriod = if (measuredZeroCrossPeriod.isFinite()) {
-                val difference = abs(spectralZeroCrossPeriod - measuredZeroCrossPeriod)
-                val relativeDiff = difference / spectralZeroCrossPeriod
+            val finalPeriod = if (measuredZeroCrossPeriod.isFinite() &&
+                measuredZeroCrossPeriod in 2f..25f) {  // Realistic range
+                val relativeDiff = abs(spectralZeroCrossPeriod - measuredZeroCrossPeriod) /
+                        spectralZeroCrossPeriod
 
                 when {
-                    // Good agreement - use spectral (more accurate for clean data)
                     relativeDiff < 0.15f -> spectralZeroCrossPeriod
-
-                    // Moderate disagreement - weighted average favoring spectral
-                    relativeDiff < 0.30f -> {
-                        0.7f * spectralZeroCrossPeriod + 0.3f * measuredZeroCrossPeriod
-                    }
-
-                    // Large disagreement - flag as questionable, use time-domain
+                    relativeDiff < 0.30f -> 0.7f * spectralZeroCrossPeriod +
+                            0.3f * measuredZeroCrossPeriod
                     else -> {
-                        println("Period disagreement: spectral=${spectralZeroCrossPeriod}s, " +
-                                "time-domain=${measuredZeroCrossPeriod}s")
-                        measuredZeroCrossPeriod  // Time-domain might be more reliable
+                        println("Large disagreement - using spectral")
+                        spectralZeroCrossPeriod
                     }
                 }
             } else {
@@ -136,7 +134,7 @@ class WaveDataProcessor {
             // Only valid stuff
             if (sigWaveHeight.isFinite() &&
                 finalPeriod.isFinite() &&
-                sigWaveHeight > 0.03f) {  // Minimum
+                sigWaveHeight > 0.15f) {  // Minimum
                 println("Valid wave detected: height=$sigWaveHeight, period=$finalPeriod")
 
                 heights.add(sigWaveHeight)
@@ -146,13 +144,12 @@ class WaveDataProcessor {
 
         if (heights.isEmpty() || periods.isEmpty()) {
             println("No valid wave segments detected - returning zeros")
-            return null
+            return Triple(0f, 0f, 0f)
         }
 
         // Smoothing
-        val avgHeightMeters = heights.average().toFloat()
+        val avgHeight = heights.average().toFloat()
         val avgPeriod = periods.average().toFloat()
-        val avgHeight = avgHeightMeters * 3.28084f
 
         // Calculate wave direction using horizontal motion
         val accelX = horizontalAcceleration.map { it.first }
@@ -160,7 +157,7 @@ class WaveDataProcessor {
         val rawFftDirection = calculateWaveDirection(accelX, accelY)
 
         val fftDirection = previousFilteredDirection?.let {
-            val delta = kotlin.math.abs(rawFftDirection - it)
+            val delta = abs(rawFftDirection - it)
             if (delta < 45f) smoothOutput(it, rawFftDirection, alpha = 0.8f) else it
         } ?: rawFftDirection
         previousFilteredDirection = fftDirection
@@ -193,5 +190,43 @@ class WaveDataProcessor {
             i += stepSize
         }
         return segments
+    }
+
+    /**
+     * Check if there's actual wave motion vs just sensor noise
+     * Call this BEFORE processing segments
+     */
+    fun isActualMotion(verticalAcceleration: List<Float>): Boolean {
+        if (verticalAcceleration.size < 100) return false
+
+        // 1. Calculate standard deviation
+        val mean = verticalAcceleration.average().toFloat()
+        val variance = verticalAcceleration.sumOf { (it - mean).toDouble().pow(2.0) } / verticalAcceleration.size
+        val stdDev = sqrt(variance).toFloat()
+
+        // 2. Motion threshold: 3x typical sensor noise
+        // Typical phone noise: ~0.015 m/s²
+        // Motion threshold: ~0.05 m/s²
+        val motionThreshold = 0.05f
+
+        if (stdDev < motionThreshold) {
+            println("No significant motion detected: stdDev=$stdDev m/s² (threshold=$motionThreshold)")
+            return false
+        }
+
+        // 3. Check for periodic motion (not just random spikes)
+        val highPassed = highPassFilter(verticalAcceleration, 51)
+        val acMean = highPassed.average().toFloat()
+        val acVariance = highPassed.sumOf { (it - acMean).toDouble().pow(2.0) } / highPassed.size
+        val acStdDev = sqrt(acVariance).toFloat()
+
+        // After high-pass, should still have significant energy
+        if (acStdDev < motionThreshold * 0.6f) {
+            println("No periodic motion after filtering: stdDev=$acStdDev m/s²")
+            return false
+        }
+
+        println("✓ Motion detected: stdDev=$stdDev m/s²")
+        return true
     }
 }

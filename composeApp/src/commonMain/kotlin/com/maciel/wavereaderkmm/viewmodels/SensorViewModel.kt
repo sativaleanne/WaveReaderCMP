@@ -2,12 +2,12 @@ package com.maciel.wavereaderkmm.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maciel.wavereaderkmm.TimeUtil
 import com.maciel.wavereaderkmm.data.FirestoreRepository
 import com.maciel.wavereaderkmm.model.MeasuredWaveData
 import com.maciel.wavereaderkmm.platform.AppLogger
 import com.maciel.wavereaderkmm.platform.SensorDataSource
 import com.maciel.wavereaderkmm.processing.WaveDataProcessor
-import com.maciel.wavereaderkmm.utils.nextBigWaveConfidence
 import com.maciel.wavereaderkmm.utils.smoothOutput
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -53,9 +53,6 @@ class SensorViewModel(
 
     private val _uiState = MutableStateFlow(WaveUiState())
     val uiState: StateFlow<WaveUiState> = _uiState.asStateFlow()
-
-    private val _bigWaveConfidence = MutableStateFlow(0f)
-    val bigWaveConfidence: StateFlow<Float> = _bigWaveConfidence.asStateFlow()
 
     private val waveDataProcessor = WaveDataProcessor()
 
@@ -144,7 +141,7 @@ class SensorViewModel(
         smoothedPeriod = smoothOutput(smoothedPeriod, avgPeriod)
 
         val elapsedTime = (currentTimeMs() - startTime) / 1000f
-
+        AppLogger.i("Info", "Current time: $elapsedTime")
         // Update UI state
         updateMeasuredWaveData(
             smoothedHeight ?: avgHeight,
@@ -152,9 +149,6 @@ class SensorViewModel(
             direction,
             elapsedTime
         )
-
-        // Update big wave confidence
-        _bigWaveConfidence.value = nextBigWaveConfidence(_uiState.value.measuredWaveList)
     }
 
     /**
@@ -197,7 +191,6 @@ class SensorViewModel(
             it.copy(measuredWaveList = emptyList(), height = null, period = null, direction = null)
         }
         waveDataProcessor.clear()
-        _bigWaveConfidence.value = 0f
         smoothedHeight = null
         smoothedPeriod = null
     }
@@ -248,7 +241,7 @@ class SensorViewModel(
      * Get current time in milliseconds
      */
     private fun currentTimeMs(): Long {
-        return com.maciel.wavereaderkmm.TimeUtil.systemTimeMs()
+        return TimeUtil.systemTimeMs()
     }
 
     override fun onCleared() {

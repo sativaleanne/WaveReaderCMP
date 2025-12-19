@@ -24,13 +24,6 @@ fun SensorGraph(
 
     val timeValues = waveData.map { it.time }.toMutableList()
 
-    // Determine forecast index
-    val forecastIndex = if (display.showForecast && predictNextBigWave(waveData)) {
-        waveData.lastIndex
-    } else {
-        -1
-    }
-
     // Limit X axis labels to 10 to avoid crowding
     val maxLabels = 10
     val labelStep = if (timeValues.size > maxLabels) {
@@ -49,7 +42,7 @@ fun SensorGraph(
 
     val mainLines = listOfNotNull(
         if (height.isNotEmpty()) {
-            GraphLine(height, "Wave Height", Color.Blue, "ft")
+            GraphLine(height, "Wave Height", Color.Blue, "m")
         } else null,
         if (period.isNotEmpty()) {
             GraphLine(period, "Wave Period", Color(0xFF008a8a), "s")
@@ -63,7 +56,6 @@ fun SensorGraph(
         lines = mainLines,
         timeLabels = timeLabels,
         isInteractive = true,
-        isScrollable = true,
-        forecastIndex = forecastIndex
+        isScrollable = true
     )
 }

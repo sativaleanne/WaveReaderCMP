@@ -322,7 +322,7 @@ fun WaveDataDisplay(
                         waveData.current?.waveDirection
                     ),
                     labels = listOf("Height", "Period", "Direction"),
-                    units = listOf("ft", "s", "°")
+                    units = listOf("m", "s", "°")
                 )
             }
 

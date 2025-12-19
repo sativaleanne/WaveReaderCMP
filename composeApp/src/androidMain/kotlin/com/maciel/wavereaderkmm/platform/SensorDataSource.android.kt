@@ -16,7 +16,9 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
     private var gyroscope: Sensor? = null
     private var magnetometer: Sensor? = null
 
-    private val alpha = 0.8f
+    private val gravityFilterTimeConstant = 1.0f  // seconds
+    private val headingFilterTimeConstant = 3.0f
+
     private val gravity = FloatArray(3)
     private val accelerometerReading = FloatArray(3)
     private val magnetometerReading = FloatArray(3)
@@ -25,6 +27,8 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
 
     private var filteredWaveDirection: Float? = null
     private var lastTimestamp: Long = 0L
+    private var lastAccelTimestamp: Long = 0L
+    private var lastGyroTimestamp: Long = 0L
     private var samplingRate: Float = 50f
 
     private var onDataCallback: ((SensorData) -> Unit)? = null
@@ -62,6 +66,8 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
     override fun onSensorChanged(event: SensorEvent) {
         updateSamplingRate(event.timestamp)
 
+        val alpha = calculateAlpha(event.timestamp)
+
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> {
                 System.arraycopy(event.values, 0, accelerometerReading, 0, accelerometerReading.size)
@@ -69,7 +75,8 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
                 val earthAcceleration = filterAccelerationData(
                     event.values[0],
                     event.values[1],
-                    event.values[2]
+                    event.values[2],
+                    alpha
                 )
 
                 // Send data to callback
@@ -84,19 +91,32 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
             }
 
             Sensor.TYPE_GYROSCOPE -> {
-                val gyroscopeDt = if (lastTimestamp != 0L) {
-                    (event.timestamp - lastTimestamp) / 1_000_000_000f
-                } else 0f
+                // Calculate time since last gyro reading
+                val gyroscopeDt = if (lastGyroTimestamp != 0L) {
+                    (event.timestamp - lastGyroTimestamp) / 1_000_000_000f
+                } else {
+                    1f / 50f  // Default: assume 50 Hz
+                }
+                lastGyroTimestamp = event.timestamp
 
                 val gyroZ = event.values[2]
-                val sensorHeading = getMagneticHeading()
+                val magnetometerHeading = getMagneticHeading()
 
                 if (filteredWaveDirection == null) {
-                    filteredWaveDirection = sensorHeading
+                    filteredWaveDirection = magnetometerHeading
                 } else {
-                    val integratedAngle = filteredWaveDirection!! + Math.toDegrees(gyroZ * gyroscopeDt.toDouble()).toFloat()
-                    val blended = alpha * integratedAngle + (1 - alpha) * sensorHeading
-                    filteredWaveDirection = (blended + 360) % 360
+                    // Integrate gyroscope
+                    val gyroRotation = Math.toDegrees(gyroZ * gyroscopeDt.toDouble()).toFloat()
+                    val integratedAngle = filteredWaveDirection!! + gyroRotation
+
+                    // === Trust gyro more than magnetometer ===
+                    // Formula: alpha = t / (t + dT)
+                    val gyroAlpha = headingFilterTimeConstant / (headingFilterTimeConstant + gyroscopeDt)
+                    val clampedAlpha = gyroAlpha.coerceIn(0.8f, 0.99f)
+
+                    // Blend: high alpha = trust integrated angle (gyro), low alpha = trust magnetometer
+                    val blended = clampedAlpha * integratedAngle + (1 - clampedAlpha) * magnetometerHeading
+                    filteredWaveDirection = normalizeAngle(blended)
                 }
             }
 
@@ -111,7 +131,7 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
     /**
      * Remove gravity and transform to earth coordinates
      */
-    private fun filterAccelerationData(x: Float, y: Float, z: Float): FloatArray {
+    private fun filterAccelerationData(x: Float, y: Float, z: Float, alpha: Float): FloatArray {
         // Gravity filtering
         gravity[0] = alpha * gravity[0] + (1 - alpha) * x
         gravity[1] = alpha * gravity[1] + (1 - alpha) * y
@@ -179,5 +199,38 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
             samplingRate = if (dt > 0) 1f / dt else 0f
         }
         lastTimestamp = currentTimestamp
+    }
+
+    /**
+     * Calculate alpha for low-pass filter based on actual sampling rate
+     *
+     * Formula: alpha = t / (t + dT)
+     * where:
+     *   t = time constant (how long to reach ~63% of new value)
+     *   dT = time between samples
+     */
+    private fun calculateAlpha(currentTimestamp: Long): Float {
+        val dT = if (lastAccelTimestamp != 0L) {
+            (currentTimestamp - lastAccelTimestamp) / 1_000_000_000f  // Convert to seconds
+        } else {
+            1f / 50f  // Default: assume 50 Hz
+        }
+
+        lastAccelTimestamp = currentTimestamp
+
+        // alpha = t / (t + dT)
+        val alpha = gravityFilterTimeConstant / (gravityFilterTimeConstant + dT)
+
+        // Clamp to reasonable range
+        return alpha.coerceIn(0.5f, 0.99f)
+    }
+
+    /**
+     * Normalize angle to 0-360 range
+     */
+    private fun normalizeAngle(angle: Float): Float {
+        var normalized = angle % 360f
+        if (normalized < 0) normalized += 360f
+        return normalized
     }
 }

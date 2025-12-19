@@ -18,7 +18,7 @@ fun HistoryGraph(waveData: List<MeasuredWaveData>, isInteractive: Boolean = fals
     val timeLabels = waveData.map { it.time.toDecimalString(1) }
 
     val lines = listOf(
-        GraphLine(height, "Wave Height", Color.Blue, "ft"),
+        GraphLine(height, "Wave Height", Color.Blue, "m"),
         GraphLine(period, "Wave Period", Color.Cyan, "s"),
         GraphLine(direction, "Wave Direction", Color.Green, "°")
     )

@@ -5,7 +5,7 @@ data class WaveApiQuery(
     val longitude: Double,
     val variables: Set<ApiVariable> = setOf(ApiVariable.WaveHeight, ApiVariable.WavePeriod, ApiVariable.WaveDirection),
     val forecastDays: Int = 1,
-    val lengthUnit: String = "imperial"
+    val lengthUnit: String = "metric"
 )
 
 enum class ApiVariable(val label: String, val paramName: String) {

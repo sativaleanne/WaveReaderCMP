@@ -154,3 +154,129 @@ fun fftIterative(data: List<Float>, n: Int): FloatArray {
 
     return result
 }
+
+/**
+ * Inverse FFT using Cooley-Tukey algorithm
+ * The only difference from forward FFT is the sign of the exponent
+ */
+private fun ifft(x: Array<Complex>): Array<Complex> {
+    val n = x.size
+
+    // Base case
+    if (n == 1) return x
+
+    // Check if power of 2
+    if (n and (n - 1) != 0) {
+        throw IllegalArgumentException("IFFT size must be power of 2, got $n")
+    }
+
+    // Divide into even and odd
+    val even = Array(n / 2) { x[2 * it] }
+    val odd = Array(n / 2) { x[2 * it + 1] }
+
+    // Conquer: recursively compute IFFT of even and odd parts
+    val evenIFFT = ifft(even)
+    val oddIFFT = ifft(odd)
+
+    // Combine (note: positive angle for inverse)
+    val result = Array(n) { Complex(0.0, 0.0) }
+    for (k in 0 until n / 2) {
+        val angle = 2.0 * PI * k / n  // Positive for inverse
+        val w = Complex(cos(angle), sin(angle))
+        val t = w * oddIFFT[k]
+
+        result[k] = evenIFFT[k] + t
+        result[k + n / 2] = evenIFFT[k] - t
+    }
+
+    return result
+}
+
+/**
+ * Inverse FFT from interleaved complex format
+ * Input: [real0, imag0, real1, imag1, ...]
+ * Output: Real-valued time domain signal
+ *
+ * This is the most commonly used function for converting frequency domain
+ * data back to time domain (e.g., after filtering or integration)
+ */
+fun getIfft(fftData: FloatArray, n: Int): List<Float> {
+    // Convert interleaved format to Complex array
+    val input = Array(n) { i ->
+        Complex(fftData[2 * i].toDouble(), fftData[2 * i + 1].toDouble())
+    }
+
+    // Perform IFFT
+    val output = ifft(input)
+
+    // Scale by 1/N and extract real part
+    val result = List(n) { i ->
+        (output[i].real / n).toFloat()
+    }
+
+    return result
+}
+
+/**
+ * Iterative inverse FFT (more efficient for large sizes)
+ */
+fun ifftIterative(fftData: FloatArray, n: Int): List<Float> {
+    // Convert from interleaved format to complex
+    val x = Array(n) { i ->
+        Complex(fftData[2 * i].toDouble(), fftData[2 * i + 1].toDouble())
+    }
+
+    // Bit-reversal permutation
+    val reversed = bitReverse(n)
+    val y = Array(n) { x[reversed[it]] }
+
+    // Iterative IFFT (positive angle for inverse)
+    var size = 2
+    while (size <= n) {
+        val halfSize = size / 2
+        val angle = 2.0 * PI / size  // Positive for inverse
+
+        for (i in 0 until n step size) {
+            for (j in 0 until halfSize) {
+                val w = Complex(cos(angle * j), sin(angle * j))
+                val t = w * y[i + j + halfSize]
+                val u = y[i + j]
+
+                y[i + j] = u + t
+                y[i + j + halfSize] = u - t
+            }
+        }
+
+        size *= 2
+    }
+
+    // Scale by 1/N and extract real part
+    val result = List(n) { i ->
+        (y[i].real / n).toFloat()
+    }
+
+    return result
+}
+
+/**
+ * Full inverse FFT that returns both real and imaginary parts
+ * Use this when you need the complete complex result
+ */
+fun getIfftComplex(fftData: FloatArray, n: Int): FloatArray {
+    // Convert interleaved format to Complex array
+    val input = Array(n) { i ->
+        Complex(fftData[2 * i].toDouble(), fftData[2 * i + 1].toDouble())
+    }
+
+    // Perform IFFT
+    val output = ifft(input)
+
+    // Convert to interleaved format with scaling
+    val result = FloatArray(2 * n)
+    for (i in 0 until n) {
+        result[2 * i] = (output[i].real / n).toFloat()
+        result[2 * i + 1] = (output[i].imag / n).toFloat()
+    }
+
+    return result
+}

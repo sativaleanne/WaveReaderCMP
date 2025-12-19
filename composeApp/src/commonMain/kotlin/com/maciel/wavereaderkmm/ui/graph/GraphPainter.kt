@@ -90,19 +90,6 @@ object GraphPainter {
     }
 
     /**
-     * Draw forecast line (vertical red line)
-     */
-    fun DrawScope.drawForecastLine(index: Int, pointSpacing: Float) {
-        val x = index * pointSpacing
-        drawLine(
-            color = Color.Red,
-            start = Offset(x, 0f),
-            end = Offset(x, size.height),
-            strokeWidth = 4f
-        )
-    }
-
-    /**
      * Plot data lines on the graph
      */
     fun DrawScope.plotLines(
