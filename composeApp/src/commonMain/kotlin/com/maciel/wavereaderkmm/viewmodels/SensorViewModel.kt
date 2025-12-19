@@ -135,7 +135,9 @@ class SensorViewModel(
     private fun processData() {
         val gyroDirection = sensorDataSource.getCurrentGyroDirection()
 
-        val (avgHeight, avgPeriod, direction) = waveDataProcessor.processWaveData(gyroDirection) ?: Triple(0f, 0f, 0f)
+        val result = waveDataProcessor.processWaveData(gyroDirection) ?: return
+
+        val (avgHeight, avgPeriod, direction) = result
 
         // Smooth the output
         smoothedHeight = smoothOutput(smoothedHeight, avgHeight)

@@ -11,6 +11,7 @@ import com.maciel.wavereaderkmm.utils.highPassFilter
 import com.maciel.wavereaderkmm.utils.medianFilter
 import com.maciel.wavereaderkmm.utils.movingAverage
 import com.maciel.wavereaderkmm.utils.smoothOutput
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 /**
@@ -55,7 +56,8 @@ class WaveDataProcessor {
      */
     fun processWaveData(gyroDirection: Float?): Triple<Float, Float, Float>? {
         if (verticalAcceleration.size < 1024) {
-            return Triple(0f, 0f, 0f)
+            return null
+            //return Triple(0f, 0f, 0f)
         }
 
         val windowSize = 1024
@@ -73,7 +75,7 @@ class WaveDataProcessor {
         for (segment in segments) {
             // Reject extremely high or low windows
             val rms = sqrt(segment.sumOf { it.toDouble() * it.toDouble() } / segment.size)
-            if (rms < 0.02f) {
+            if (rms < 0.003f) {
                 println("Segment RMS too low: $rms m/s²")
                 continue
             }
@@ -94,10 +96,10 @@ class WaveDataProcessor {
 
             // Compute frequency-domain features
             val fft = getFft(windowed, windowed.size)
-            val spectrum = computeSpectralDensity(fft, windowed.size)
-            val (m0, m1, m2) = calculateSpectralMoments(spectrum, samplingRate)
+            val spectrum = computeSpectralDensity(fft, windowed.size, samplingRate)
+            val (m0, m1, m2) = calculateSpectralMoments(spectrum, samplingRate, isAccelerationSpectrum = true)
 
-            if (m0 < 0.0001f) {
+            if (m0 < 0.00003f) {
                 println("Spectral energy too low: m0=$m0")
                 continue
             }
@@ -105,9 +107,27 @@ class WaveDataProcessor {
             // Get spectral and zero-crossing wave periods
             val (sigWaveHeight, avePeriod, spectralZeroCrossPeriod) = computeWaveMetricsFromSpectrum(m0, m1, m2)
             val measuredZeroCrossPeriod = estimateZeroCrossingPeriod(segment, samplingRate)
-        // Stability
+
             val finalPeriod = if (measuredZeroCrossPeriod.isFinite()) {
-                (spectralZeroCrossPeriod + measuredZeroCrossPeriod) / 2f
+                val difference = abs(spectralZeroCrossPeriod - measuredZeroCrossPeriod)
+                val relativeDiff = difference / spectralZeroCrossPeriod
+
+                when {
+                    // Good agreement - use spectral (more accurate for clean data)
+                    relativeDiff < 0.15f -> spectralZeroCrossPeriod
+
+                    // Moderate disagreement - weighted average favoring spectral
+                    relativeDiff < 0.30f -> {
+                        0.7f * spectralZeroCrossPeriod + 0.3f * measuredZeroCrossPeriod
+                    }
+
+                    // Large disagreement - flag as questionable, use time-domain
+                    else -> {
+                        println("Period disagreement: spectral=${spectralZeroCrossPeriod}s, " +
+                                "time-domain=${measuredZeroCrossPeriod}s")
+                        measuredZeroCrossPeriod  // Time-domain might be more reliable
+                    }
+                }
             } else {
                 spectralZeroCrossPeriod
             }
@@ -116,7 +136,8 @@ class WaveDataProcessor {
             // Only valid stuff
             if (sigWaveHeight.isFinite() &&
                 finalPeriod.isFinite() &&
-                sigWaveHeight > 0.05f) {  // Minimum 5cm / 2 inches
+                sigWaveHeight > 0.03f) {  // Minimum
+                println("Valid wave detected: height=$sigWaveHeight, period=$finalPeriod")
 
                 heights.add(sigWaveHeight)
                 periods.add(finalPeriod)
@@ -125,7 +146,7 @@ class WaveDataProcessor {
 
         if (heights.isEmpty() || periods.isEmpty()) {
             println("No valid wave segments detected - returning zeros")
-            return Triple(0f, 0f, 0f)
+            return null
         }
 
         // Smoothing

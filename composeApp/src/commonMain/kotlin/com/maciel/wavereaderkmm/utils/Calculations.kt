@@ -101,35 +101,43 @@ fun calculateWaveDirection(accelX: List<Float>, accelY: List<Float>): Float {
 }
 
 // Converts FFT output into a power spectrum (density per frequency band)
-fun computeSpectralDensity(fft: FloatArray, n: Int): List<Float> {
+fun computeSpectralDensity(fft: FloatArray, n: Int, samplingRate: Float): List<Float> {
     val halfN = n / 2
+    val dt = 1.0f / samplingRate  // ← ADD THIS
+
     return (0 until halfN).map { i ->
         val re = fft[2 * i]
         val im = fft[2 * i + 1]
         val magnitude = re * re + im * im
-        // Scale by (2/n)^2 for proper power spectral density
-        // Factor of 2 accounts for negative frequencies
-        //(magnitude * 4f) / (n * n)
-        magnitude / (n * n).toFloat()
+        // CORRECT: dividing by (n * Δt)
+        magnitude / (n * dt)  // ← CHANGE THIS
     }
 }
 
 // Calculate spectral moments
-fun calculateSpectralMoments(spectrum: List<Float>, samplingRate: Float): Triple<Float, Float, Float> {
-    val df = samplingRate / (2 * spectrum.size) // frequency resolution
-
+fun calculateSpectralMoments(
+    spectrum: List<Float>,
+    samplingRate: Float,
+    isAccelerationSpectrum: Boolean = true
+): Triple<Float, Float, Float> {
+    val df = samplingRate / (2 * spectrum.size)
     var m0 = 0f
     var m1 = 0f
     var m2 = 0f
 
     for (i in spectrum.indices) {
         val f = i * df
-
-        // Only include wave frequencies (0.05 Hz to 0.5 Hz)
-        // This filters out drift (<0.05 Hz) and high-frequency noise (>0.5 Hz)
         if (f !in 0.05f..0.5f) continue
 
-        val S = spectrum[i]
+        var S = spectrum[i]
+
+        // ← ADD THIS CONVERSION
+        // Convert acceleration PSD to displacement PSD
+        if (isAccelerationSpectrum && f > 0f) {
+            val omega = 2.0f * PI.toFloat() * f  // Radian frequency
+            S /= (omega * omega * omega * omega)  // Divide by ω⁴
+        }
+
         m0 += S * df
         m1 += S * f * df
         m2 += S * f * f * df
