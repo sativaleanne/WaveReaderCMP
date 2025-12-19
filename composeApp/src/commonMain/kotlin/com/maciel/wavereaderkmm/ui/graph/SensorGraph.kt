@@ -1,6 +1,5 @@
 package com.maciel.wavereaderkmm.ui.graph
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.maciel.wavereaderkmm.model.GraphDisplayOptions

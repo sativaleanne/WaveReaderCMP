@@ -6,6 +6,8 @@ import com.maciel.wavereaderkmm.data.FirestoreRepository
 import com.maciel.wavereaderkmm.model.HistoryFilterState
 import com.maciel.wavereaderkmm.model.HistoryRecord
 import com.maciel.wavereaderkmm.model.SortOrder
+import com.maciel.wavereaderkmm.platform.exportToCsv
+import com.maciel.wavereaderkmm.platform.exportToJson
 import com.maciel.wavereaderkmm.utils.toRadians
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -331,6 +333,86 @@ class HistoryViewModel(
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
 
         return earthRadiusMiles * c
+    }
+
+    /**
+     * Get currently selected records
+     *
+     * Maps selected IDs to actual record objects.
+     */
+    fun getSelectedRecords(): List<HistoryRecord> {
+        val currentState = getCurrentState() ?: return emptyList()
+        val selectedIds = currentState.selectedItems
+
+        return currentState.historyRecords.filter { record ->
+            record.id in selectedIds
+        }
+    }
+
+    /**
+     * Get all visible records (after filters applied)
+     *
+     * Export respects current filters
+     */
+    fun getAllRecords(): List<HistoryRecord> {
+        return getCurrentState()?.historyRecords ?: emptyList()
+    }
+
+    /**
+     * Export selected records to CSV
+     *
+     */
+    fun exportSelectedToCsv(onSuccess: (String) -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            val records = getSelectedRecords()
+            if (records.isEmpty()) {
+                onFailure("No records selected")
+                return@launch
+            }
+            exportToCsv(records, onSuccess, onFailure)
+        }
+    }
+
+    /**
+     * Export all visible records to CSV
+     */
+    fun exportAllToCsv(onSuccess: (String) -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            val records = getAllRecords()
+            if (records.isEmpty()) {
+                onFailure("No records to export")
+                return@launch
+            }
+            exportToCsv(records, onSuccess, onFailure)
+        }
+    }
+
+    /**
+     * Export selected records to JSON
+     */
+    fun exportSelectedToJson(onSuccess: (String) -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            val records = getSelectedRecords()
+            if (records.isEmpty()) {
+                onFailure("No records selected")
+                return@launch
+            }
+            exportToJson(records, onSuccess, onFailure)
+        }
+    }
+
+    /**
+     * Export all visible records to JSON
+     */
+    fun exportAllToJson(onSuccess: (String) -> Unit, onFailure: (String) -> Unit) {
+        viewModelScope.launch {
+            val records = getAllRecords()
+            if (records.isEmpty()) {
+                onFailure("No records to export")
+                return@launch
+            }
+            exportToJson(records, onSuccess, onFailure)
+        }
     }
 
 }

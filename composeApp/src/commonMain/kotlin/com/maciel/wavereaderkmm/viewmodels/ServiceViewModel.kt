@@ -1,6 +1,5 @@
 package com.maciel.wavereaderkmm.viewmodels
 
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maciel.wavereaderkmm.data.WaveApiRepository
