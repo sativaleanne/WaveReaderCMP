@@ -136,7 +136,7 @@ fun Graph(
                         drawGridLines()
 
 
-                        drawYLabels(textMeasurer, maxValues, units)
+                        //drawYLabels(textMeasurer, maxValues, units)
 
                         if (isScrollable) drawContext.canvas.save()
                         drawContext.canvas.translate(
@@ -145,8 +145,7 @@ fun Graph(
                         )
 
                         if (isXLabeled) {
-
-                            drawXLabels(textMeasurer, timeLabels, pointSpacing)
+                            //drawXLabels(textMeasurer, timeLabels, pointSpacing)
                         }
 
                         plotLines(
@@ -157,6 +156,9 @@ fun Graph(
                             pointSpacing,
                             size.height
                         )
+
+                        drawXCoordinates(textMeasurer, selectedIndex, timeLabels, pointSpacing)
+                        drawYCoordinates(textMeasurer, selectedIndex, dataSets, maxValues, units, size.height)
 
                         drawCoordinate(selectedIndex, dataPointCount, pointSpacing)
 

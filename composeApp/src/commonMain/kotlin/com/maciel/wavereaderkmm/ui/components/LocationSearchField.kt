@@ -184,7 +184,7 @@ fun LocationSearchField(
  * - Coordinates: "37.7749, -122.4194" or "37.7749,-122.4194"
  * - Place names: "San Francisco", "Golden Gate Park", etc.
  *
- * FIXED: Now works with LocationViewModel's UIState pattern
+ * Now works with LocationViewModel's UIState pattern
  */
 private suspend fun handleLocationInput(
     input: String,

@@ -55,21 +55,38 @@ object GraphPainter {
         maxValues: List<Float>,
         units: List<String>
     ) {
+        val numSteps = 5
         val positions = units.indices.map { i -> size.width - 160f + i * 60f }
-        val yStep = size.height / 6
+        val yStep = size.height / numSteps.toFloat()
         val labelPadding = 2.dp.toPx()
+        val bgPadding = 1.dp.toPx()
+        val horizontalSpacing = 3.dp.toPx()
 
         val textStyle = TextStyle(
             fontSize = 10.sp,
-            color = Color.Black
+            color = Color.DarkGray
         )
 
-        for (i in 0..6) {
-            val y = size.height - (yStep * i)
+        val rightMargin = 4.dp.toPx()
 
-            maxValues.forEachIndexed { index, maxVal ->
-                val labelValue = (maxVal / 6f * i)
-                val text = labelValue.toDecimalString(1) + units[index]
+        for (i in 0..numSteps) {
+            val y = size.height - (yStep * i)
+            var currentX = size.width - labelPadding
+
+            maxValues.indices.reversed().forEach { index ->
+                if (index >= maxValues.size) return@forEach
+
+                val labelValue = (maxValues[index] / numSteps.toFloat() * i)
+                val text = "${labelValue.toDecimalString(1)}${units[index]}"
+
+                // Measure text
+                val measured = textMeasurer.measure(text, style = textStyle)
+                val textWidth = measured.size.width.toFloat()
+                val textHeight = measured.size.height.toFloat()
+
+                // Calculate position (right-aligned from currentX)
+                val x = currentX - textWidth - bgPadding * 2
+                val textY = y - textHeight / 2  // Center vertically on grid line
 
                 // Measure text to get size
                 val textLayoutResult = textMeasurer.measure(
@@ -77,14 +94,25 @@ object GraphPainter {
                     style = textStyle
                 )
 
-                // Draw text
-                drawText(
-                    textLayoutResult = textLayoutResult,
+                // Draw semi-transparent background for readability
+                drawRect(
+                    color = Color.White.copy(alpha = 0.8f),
                     topLeft = Offset(
-                        x = positions[index],
-                        y = y - labelPadding - textLayoutResult.size.height
+                        x - bgPadding,
+                        textY - bgPadding
+                    ),
+                    size = androidx.compose.ui.geometry.Size(
+                        textWidth + bgPadding * 2,
+                        textHeight + bgPadding * 2
                     )
                 )
+                // Draw text
+                drawText(
+                    textLayoutResult = measured,
+                    topLeft = Offset(x, textY)
+                )
+                // Move X position left for next label
+                currentX = x - horizontalSpacing
             }
         }
     }
@@ -150,32 +178,201 @@ object GraphPainter {
         timeLabels: List<String>,
         pointSpacing: Float
     ) {
-        val labelPadding = 12.dp.toPx()
+        val labelPadding = 4.dp.toPx()
 
         val textStyle = TextStyle(
-            fontSize = 12.sp,
-            color = Color.Black
+            fontSize = 10.sp,
+            color = Color.DarkGray
         )
 
         timeLabels.forEachIndexed { index, label ->
-            // Only draw every other label to avoid crowding
-            if (index % 2 == 0) {
-                // Measure text
-                val textLayoutResult = textMeasurer.measure(
-                    text = label,
-                    style = textStyle
-                )
+            if (label.isNotEmpty()) {
+                // Only draw every other label to avoid crowding
+                if (index % 2 == 0) {
+                    // Measure text
+                    val textLayoutResult = textMeasurer.measure(
+                        text = label,
+                        style = textStyle
+                    )
 
-                // Draw text centered at x position
-                drawText(
-                    textLayoutResult = textLayoutResult,
-                    topLeft = Offset(
-                        x = index * pointSpacing - (textLayoutResult.size.width / 2),
-                        y = size.height + labelPadding
+                    // Draw text centered at x position
+                    drawText(
+                        textLayoutResult = textLayoutResult,
+                        topLeft = Offset(
+                            x = index * pointSpacing - (textLayoutResult.size.width / 2),
+                            y = size.height - textLayoutResult.size.height - labelPadding
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Draw Y-axis coordinates at selection
+     */
+    fun DrawScope.drawYCoordinates(
+        textMeasurer: TextMeasurer,
+        selectedIndex: Int,
+        dataSets: List<List<Float>>,
+        maxValues: List<Float>,
+        units: List<String>,
+        graphHeight: Float
+    ) {
+        if (selectedIndex == -1) return
+
+        val labelPadding = 1.dp.toPx()
+        val bgPadding = 1.dp.toPx()
+        val horizontalOffset = 12.dp.toPx()  // Offset from the point
+        val collisionThreshold = 4.dp.toPx()  // Min vertical distance between labels
+
+        val textStyle = TextStyle(
+            fontSize = 10.sp,
+            color = Color.Black  // White text on colored background
+        )
+
+        // Data structure to hold label information
+        data class LabelInfo(
+            val value: String,
+            val normalizedY: Float,
+            var displayY: Float,
+            val textWidth: Float,
+            val textHeight: Float
+        )
+
+        // Step 1: Collect all label information
+        val labels = mutableListOf<LabelInfo>()
+
+        dataSets.forEachIndexed { index, data ->
+            if (selectedIndex in data.indices) {
+                val value = data[selectedIndex]
+
+                // Normalize Y position (same logic as plotLines)
+                val normalizedY = (value / (maxValues[index] + 0.01f)) * graphHeight
+                val displayY = graphHeight - normalizedY
+
+                // Format the value text
+                val text = "${value.toDecimalString(1)}${units[index]}"
+
+                // Measure text dimensions
+                val measured = textMeasurer.measure(text, style = textStyle)
+                val textWidth = measured.size.width.toFloat()
+                val textHeight = measured.size.height.toFloat()
+
+                labels.add(
+                    LabelInfo(
+                        value = text,
+                        normalizedY = normalizedY,
+                        displayY = displayY,
+                        textWidth = textWidth,
+                        textHeight = textHeight
                     )
                 )
             }
         }
+
+        // Step 2: Sort labels by Y position (top to bottom)
+        labels.sortBy { it.displayY }
+
+        // Step 3: Collision detection and resolution
+        // Move overlapping labels apart vertically
+        for (i in 1 until labels.size) {
+            val prev = labels[i - 1]
+            val curr = labels[i]
+
+            val prevBottom = prev.displayY + prev.textHeight + bgPadding * 2
+            val currTop = curr.displayY - bgPadding
+
+            if (prevBottom + collisionThreshold > currTop) {
+                // Collision detected - shift current label down
+                curr.displayY = prevBottom + collisionThreshold + bgPadding
+            }
+        }
+
+        // Step 4: Draw labels
+        var currentX = size.width - labelPadding
+
+        labels.forEach { label ->
+            // Determine horizontal position
+
+            val x = currentX - label.textWidth - bgPadding * 2
+
+            // Vertically center the label on its Y position
+            val textY = label.displayY - (label.textHeight / 2)
+
+            // Ensure label stays on canvas vertically
+            val finalTextY = textY.coerceIn(
+                0f,
+                size.height - label.textHeight - bgPadding * 2
+            )
+
+            // Draw the value text
+            val textLayoutResult = textMeasurer.measure(
+                text = label.value,
+                style = textStyle
+            )
+
+            drawText(
+                textLayoutResult = textLayoutResult,
+                topLeft = Offset(x, finalTextY)
+            )
+            currentX = x - bgPadding
+        }
+    }
+
+    /**
+     * Draw X-axis coordinates at selection
+     */
+    fun DrawScope.drawXCoordinates(
+        textMeasurer: TextMeasurer,
+        selectedIndex: Int,
+        timeLabels: List<String>,
+        pointSpacing: Float
+    ) {
+        if (selectedIndex == -1 || selectedIndex !in timeLabels.indices) return
+
+        val labelPadding = 1.dp.toPx()
+        val bgPadding = 4.dp.toPx()
+        val bottomMargin = 1.dp.toPx()  // Space from bottom edge
+
+        val textStyle = TextStyle(
+            fontSize = 10.sp,
+            color = Color.Black
+        )
+
+        // Measure the text to get dimensions
+        val textLayoutResult = textMeasurer.measure(
+            text = timeLabels[selectedIndex],
+            style = textStyle
+        )
+
+        val textWidth = textLayoutResult.size.width.toFloat()
+        val textHeight = textLayoutResult.size.height.toFloat()
+
+        // Calculate centered X position for the selected point
+        val centerX = selectedIndex * pointSpacing
+
+        // Calculate the left edge of the text box
+        var textX = centerX - (textWidth / 2)
+
+        // label stays within canvas
+        val boxWidth = textWidth + (bgPadding * 2)
+        if (textX - bgPadding < 0f) {
+            // Too far left, align to left edge
+            textX = bgPadding
+        } else if (textX + boxWidth + bgPadding > size.width) {
+            // Too far right, align to right edge
+            textX = size.width - boxWidth - bgPadding
+        }
+
+        // Position at bottom of canvas
+        val textY = size.height - labelPadding
+
+        // Draw the time label
+        drawText(
+            textLayoutResult = textLayoutResult,
+            topLeft = Offset(textX, textY)
+        )
     }
 
     /**
