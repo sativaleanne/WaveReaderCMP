@@ -60,7 +60,10 @@ fun LocationSearchField(
     // Derive display state from UIState
     val isProcessing = uiState is UiState.Loading
     val uiErrorMessage = (uiState as? UiState.Error)?.message
-    val currentLocationData = (uiState as? UiState.Success)?.data
+    val currentLocationData = when (val state = uiState) {
+        is UiState.Success -> state.data
+        else -> null
+    }
 
     // Update search text when location is set
     LaunchedEffect(currentLocationData?.displayText) {
@@ -236,7 +239,7 @@ private fun handleCoordinateInput(
 /**
  * Handle geocoding of place names, addresses, etc.
  *
- * FIXED: Now properly uses the new LocationViewModel API
+ * Now properly uses the new LocationViewModel API
  */
 private suspend fun handleGeocodeInput(
     query: String,

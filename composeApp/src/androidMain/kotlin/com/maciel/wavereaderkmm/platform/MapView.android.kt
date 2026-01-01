@@ -45,18 +45,12 @@ actual fun MapView(
     // Request location permission and fetch initial location
     RequestLocationPermission(
         onPermissionGranted = {
-            // Permission granted - fetch location will happen in LaunchedEffect
+            // Permission granted
         },
         onPermissionDenied = {
             // Permission denied - map still works, just no blue dot
         }
     ) {
-        // Fetch user location when permission is granted
-        LaunchedEffect(isPermissionGranted) {
-            if (isPermissionGranted) {
-                locationViewModel.getCurrentLocation()
-            }
-        }
 
         // Animate camera to selected location
         LaunchedEffect(coordinates) {

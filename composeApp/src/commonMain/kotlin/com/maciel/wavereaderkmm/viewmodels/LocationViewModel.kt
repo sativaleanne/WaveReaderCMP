@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
  */
 data class LocationUiState(
     val currentLocation: LocationData? = null,
-    val displayText: String = "No location selected",
+    val displayText: String = "",
     val lastGeocodedAddress: GeocodedAddress? = null
 )
 
@@ -160,7 +160,7 @@ class LocationViewModel(
      * Reset location state
      */
     fun resetLocationState() {
-        _uiState.value = UiState.Success(LocationUiState())
+        _uiState.value = UiState.Empty
     }
 
     /**

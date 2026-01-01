@@ -389,13 +389,6 @@ fun EmptyStateView() {
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = Icons.Default.Search,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Search for a location to get wave data",
             style = MaterialTheme.typography.bodyMedium,
