@@ -1,5 +1,6 @@
 package com.maciel.wavereaderkmm.utils
 
+import com.maciel.wavereaderkmm.platform.AppLogger
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
@@ -14,9 +15,6 @@ import kotlin.time.Instant
 
 /**
  * Format ISO 8601 datetime string to hour only
- *
- * @param isoString ISO 8601 formatted datetime string
- * @return Hour as string (0-23)
  */
 @OptIn(ExperimentalTime::class)
 fun formatTime(isoString: String): String {
@@ -41,9 +39,6 @@ fun formatTime(isoString: String): String {
 
 /**
  * Format ISO 8601 datetime string to hour:minute
- *
- * @param isoString ISO 8601 formatted datetime string
- * @return Time as string (HH:mm)
  */
 @OptIn(ExperimentalTime::class)
 fun formatTimeWithMinutes(isoString: String): String {
@@ -87,13 +82,12 @@ fun formatDate(millis: Long): String {
 
 /**
  * Format milliseconds timestamp to date and time string
- *
- * @param millis Milliseconds since epoch
- * @return Formatted datetime string (MMM dd, yyyy HH:mm)
  */
 @OptIn(ExperimentalTime::class)
 fun formatDateTime(millis: Long): String {
+    AppLogger.d("formatDateTime", "Millis: $millis")
     val instant = Instant.fromEpochMilliseconds(millis)
+    AppLogger.d("formatDateTime", "Instant: $instant")
     val dateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
 
     val monthNames = listOf(
@@ -106,14 +100,12 @@ fun formatDateTime(millis: Long): String {
     val year = dateTime.year
     val hour = dateTime.hour.toString().padStart(2, '0')
     val minute = dateTime.minute.toString().padStart(2, '0')
-
+    AppLogger.d("formatDateTime", "DateTime: $dateTime")
     return "$month $day, $year $hour:$minute"
 }
 
 /**
  * Get current timestamp in milliseconds
- *
- * @return Current time in milliseconds since epoch
  */
 @OptIn(ExperimentalTime::class)
 fun currentTimeMillis(): Long {
@@ -122,8 +114,6 @@ fun currentTimeMillis(): Long {
 
 /**
  * Generate timestamp string for file names
- *
- * @return Timestamp string (yyyyMMdd_HHmmss)
  */
 @OptIn(ExperimentalTime::class)
 fun generateFileTimestamp(): String {

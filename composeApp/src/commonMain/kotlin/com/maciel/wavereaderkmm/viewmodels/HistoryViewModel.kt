@@ -6,6 +6,7 @@ import com.maciel.wavereaderkmm.data.FirestoreRepository
 import com.maciel.wavereaderkmm.model.HistoryFilterState
 import com.maciel.wavereaderkmm.model.HistoryRecord
 import com.maciel.wavereaderkmm.model.SortOrder
+import com.maciel.wavereaderkmm.platform.AppLogger
 import com.maciel.wavereaderkmm.platform.exportToCsv
 import com.maciel.wavereaderkmm.platform.exportToJson
 import com.maciel.wavereaderkmm.utils.toRadians
@@ -92,6 +93,8 @@ class HistoryViewModel(
 
         // Get all records
         val allRecords = currentState.historyRecords
+        AppLogger.d("HistoryViewModel", "Applying filters: $filter")
+
 
         // Apply date filters
         var filtered = allRecords.filter { record ->
@@ -122,10 +125,11 @@ class HistoryViewModel(
 
         // Apply sorting
         filtered = when (filter.sortOrder) {
-            SortOrder.DATE_ASCENDING -> filtered.sortedBy { it.timestamp }
-            SortOrder.DATE_DESCENDING -> filtered.sortedByDescending { it.timestamp }
+            SortOrder.DATE_ASCENDING -> filtered.sortedBy { it.timestampMillis }
+            SortOrder.DATE_DESCENDING -> filtered.sortedByDescending { it.timestampMillis }
             SortOrder.LOCATION_NAME -> filtered.sortedBy { it.location }
         }
+
 
         // Update state with filtered records
         updateSuccessState(currentState.copy(historyRecords = filtered))
@@ -134,7 +138,7 @@ class HistoryViewModel(
     /**
      * Delete a single history record
      *
-     * REASONING: Optimistic update pattern - immediately update UI,
+     * Optimistic update pattern - immediately update UI,
      * then sync with backend
      */
     fun deleteRecord(recordId: String) {
