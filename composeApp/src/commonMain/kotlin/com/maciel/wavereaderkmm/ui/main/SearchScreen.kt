@@ -312,7 +312,7 @@ fun WaveDataDisplay(
             Text("New Search")
         }
 
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 WaveDataCard(
                     title = "Current Conditions at $locationText",

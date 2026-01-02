@@ -64,8 +64,20 @@ fun Graph(
 
     var userScrolling by remember { mutableStateOf(false) }
 
-    val pointSpacing = 40f
+
     val dataPointCount = lines.firstOrNull()?.values?.size ?: 0
+
+    val pointSpacing = if (isScrollable) {
+        40f  // Keep fixed spacing for scrollable graphs
+    } else {
+        // Distribute points evenly across available width
+        if (dataPointCount > 1) {
+            canvasWidth / (dataPointCount - 1)
+        } else {
+            canvasWidth
+        }
+    }
+
     val graphWidth = dataPointCount * pointSpacing
 
     val dataSets = lines.map { it.values }
@@ -88,7 +100,7 @@ fun Graph(
                 .height(300.dp)
                 .clip(RectangleShape)
                 .background(Color.White)
-                .padding(horizontal = 8.dp, vertical = 12.dp)
+                .padding(horizontal = 4.dp, vertical = 12.dp)
                 .then(
                     if (isScrollable || isInteractive) Modifier.pointerInput(dataPointCount) {
                         detectDragGestures(
@@ -157,10 +169,10 @@ fun Graph(
                             size.height
                         )
 
-                        drawXCoordinates(textMeasurer, selectedIndex, timeLabels, pointSpacing)
-                        drawYCoordinates(textMeasurer, selectedIndex, dataSets, maxValues, units, size.height)
-
                         drawCoordinate(selectedIndex, dataPointCount, pointSpacing)
+                        drawXCoordinates(textMeasurer, selectedIndex, timeLabels, pointSpacing)
+                        drawYCoordinates(textMeasurer, selectedIndex, dataSets, maxValues, colors, units, size.height)
+
 
                         if (isScrollable) drawContext.canvas.restore()
                     }

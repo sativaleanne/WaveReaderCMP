@@ -216,6 +216,7 @@ object GraphPainter {
         selectedIndex: Int,
         dataSets: List<List<Float>>,
         maxValues: List<Float>,
+        colors: List<Color>,
         units: List<String>,
         graphHeight: Float
     ) {
@@ -234,6 +235,7 @@ object GraphPainter {
         // Data structure to hold label information
         data class LabelInfo(
             val value: String,
+            val color: Color,
             val normalizedY: Float,
             var displayY: Float,
             val textWidth: Float,
@@ -262,6 +264,7 @@ object GraphPainter {
                 labels.add(
                     LabelInfo(
                         value = text,
+                        color = colors[index],
                         normalizedY = normalizedY,
                         displayY = displayY,
                         textWidth = textWidth,
@@ -303,13 +306,38 @@ object GraphPainter {
             // Ensure label stays on canvas vertically
             val finalTextY = textY.coerceIn(
                 0f,
-                size.height - label.textHeight - bgPadding * 2
+                size.height - bgPadding * 2
             )
 
             // Draw the value text
             val textLayoutResult = textMeasurer.measure(
                 text = label.value,
                 style = textStyle
+            )
+            // draw white background
+            drawRect(
+                color = Color.White.copy(alpha = 0.8f),
+                topLeft = Offset(
+                    x - bgPadding,
+                    textY - bgPadding
+                ),
+                size = androidx.compose.ui.geometry.Size(
+                    label.textWidth + bgPadding * 2,
+                    label.textHeight + bgPadding * 2
+                )
+            )
+
+            // Draw semi-transparent color
+            drawRect(
+                color = label.color.copy(alpha = 0.2f),
+                topLeft = Offset(
+                    x - bgPadding,
+                    textY - bgPadding
+                ),
+                size = androidx.compose.ui.geometry.Size(
+                    label.textWidth + bgPadding * 2,
+                    label.textHeight + bgPadding * 2
+                )
             )
 
             drawText(

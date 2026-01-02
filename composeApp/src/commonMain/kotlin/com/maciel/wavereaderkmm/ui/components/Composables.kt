@@ -49,7 +49,7 @@ fun WaveDataCard(
             .padding(vertical = 8.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Text(text = title, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp).fillMaxWidth())
+        Text(text = title, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()

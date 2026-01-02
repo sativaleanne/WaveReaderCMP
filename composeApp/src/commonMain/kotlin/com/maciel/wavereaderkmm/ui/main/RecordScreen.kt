@@ -234,7 +234,6 @@ private fun WaveDataDisplay(
 ) {
     var displayOptions by remember { mutableStateOf(GraphDisplayOptions()) }
     Column(
-        modifier = Modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         WaveDataCard(
