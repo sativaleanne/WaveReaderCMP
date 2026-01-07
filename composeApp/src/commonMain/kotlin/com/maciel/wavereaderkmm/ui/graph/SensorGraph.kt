@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.maciel.wavereaderkmm.model.GraphDisplayOptions
 import com.maciel.wavereaderkmm.model.MeasuredWaveData
-import com.maciel.wavereaderkmm.utils.predictNextBigWave
 import com.maciel.wavereaderkmm.utils.toDecimalString
 
 /**
