@@ -1,7 +1,9 @@
 package com.maciel.wavereaderkmm.ui.main
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,15 +15,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -50,6 +61,7 @@ import com.maciel.wavereaderkmm.viewmodels.SensorViewModel
 import com.maciel.wavereaderkmm.viewmodels.UiState
 import com.maciel.wavereaderkmm.viewmodels.WaveUiState
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 /**
  * Record Screen
@@ -86,6 +98,14 @@ fun RecordDataScreen(
     }
 
     Scaffold(
+        bottomBar = {
+            BottomAppBarContent(
+                uiState = uiState,
+                viewModel = sensorViewModel,
+                locationViewModel = locationViewModel,
+                isGuest = isGuest
+            )
+        },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
         }
@@ -131,16 +151,6 @@ fun RecordDataScreen(
                 SavingIndicator()
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            ActionButtons(
-                uiState = uiState,
-                viewModel = sensorViewModel,
-                locationViewModel = locationViewModel,
-                isGuest = isGuest
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -259,12 +269,8 @@ private fun WaveDataDisplay(
     }
 }
 
-/**
- * Action buttons for record/save/clear
- *
- */
 @Composable
-private fun ActionButtons(
+private fun BottomAppBarContent(
     uiState: WaveUiState,
     viewModel: SensorViewModel,
     locationViewModel: LocationViewModel,
@@ -319,86 +325,97 @@ private fun ActionButtons(
         }
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        // Record/Stop button
-        Button(
-            onClick = {
-                if (uiState.isRecording) {
-                    viewModel.stopSensors()
-                } else {
-                    viewModel.startSensors()
-                }
-            },
-            enabled = uiState.sensorsAvailable && !uiState.isSaving,
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(8.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(text = if (uiState.isRecording) "Stop" else "Record")
-        }
-
-        Spacer(modifier = Modifier.size(8.dp))
-
-        // Save button
-        if (!isGuest) {
-            Button(
-                onClick = {
-                    // Trigger location fetch and save
-                    scope.launch {
-                        isFetchingLocationForSave = true
-                        locationViewModel.getCurrentLocation()
-                    }
-                },
-                enabled = !uiState.isSaving &&
-                        !uiState.isRecording &&
-                        uiState.measuredWaveList.isNotEmpty() &&
-                        !isFetchingLocationForSave,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                if (isFetchingLocationForSave && locationUiState is UiState.Loading) {
-                    // Show loading during location fetch
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically) {
+                if (uiState.measuredWaveList.isNotEmpty()) {
+                    // Clear button on the left
+                    OutlinedButton(
+                        onClick = { showClearDialog = true },
+                        enabled = !uiState.isRecording &&
+                                uiState.measuredWaveList.isNotEmpty() &&
+                                !uiState.isSaving,
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Saving...")
+                        Text("Clear")
                     }
-                } else {
-                    Text("Save")
+                }
+
+                if (uiState.sensorsAvailable) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    // Centered FAB
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            if (!uiState.isSaving) {  // Prevent action during save
+                                if (uiState.isRecording) {
+                                    viewModel.stopSensors()
+                                } else {
+                                    viewModel.startSensors()
+                                }
+                            }
+                        },
+                        containerColor = if (uiState.isRecording)
+                            MaterialTheme.colorScheme.errorContainer
+                        else
+                            MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = if (uiState.isRecording)
+                            MaterialTheme.colorScheme.onErrorContainer
+                        else
+                            MaterialTheme.colorScheme.onPrimaryContainer,
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 6.dp
+                        )
+                    ) {
+                        Text(
+                            text = if (uiState.isRecording) "Pause" else "Record"
+                        )
+                    }
+                }
+                if (uiState.measuredWaveList.isNotEmpty()) {
+                    // Save button on the right (only if not guest)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            // Trigger location fetch and save
+                            scope.launch {
+                                isFetchingLocationForSave = true
+                                locationViewModel.getCurrentLocation()
+                            }
+                        },
+                        enabled = !isGuest &&
+                            !uiState.isSaving &&
+                                !uiState.isRecording &&
+                                uiState.measuredWaveList.isNotEmpty() &&
+                                !isFetchingLocationForSave,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        if (isFetchingLocationForSave && locationUiState is UiState.Loading) {
+                            // Show loading during location fetch
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Saving...")
+                            }
+                        } else {
+                            Text("Save")
+                        }
+                    }
                 }
             }
-
-            Spacer(modifier = Modifier.size(8.dp))
         }
-
-        // Clear button
-        if (uiState.measuredWaveList.isNotEmpty()) {
-            Button(
-                onClick = { showClearDialog = true },
-                enabled = !uiState.isRecording &&
-                        uiState.measuredWaveList.isNotEmpty() &&
-                        !uiState.isSaving,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Text("Clear")
-            }
-        }
-    }
 
     // Clear confirmation dialog
     if (showClearDialog) {

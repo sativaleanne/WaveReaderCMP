@@ -306,7 +306,7 @@ object GraphPainter {
             // Ensure label stays on canvas vertically
             val finalTextY = textY.coerceIn(
                 0f,
-                size.height - bgPadding * 2
+                size.height
             )
 
             // Draw the value text
@@ -318,8 +318,7 @@ object GraphPainter {
             drawRect(
                 color = Color.White.copy(alpha = 0.8f),
                 topLeft = Offset(
-                    x - bgPadding,
-                    textY - bgPadding
+                    x - bgPadding, finalTextY - bgPadding
                 ),
                 size = androidx.compose.ui.geometry.Size(
                     label.textWidth + bgPadding * 2,
@@ -332,7 +331,7 @@ object GraphPainter {
                 color = label.color.copy(alpha = 0.2f),
                 topLeft = Offset(
                     x - bgPadding,
-                    textY - bgPadding
+                    finalTextY - bgPadding
                 ),
                 size = androidx.compose.ui.geometry.Size(
                     label.textWidth + bgPadding * 2,

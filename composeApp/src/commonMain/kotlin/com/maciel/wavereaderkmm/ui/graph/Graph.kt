@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import com.maciel.wavereaderkmm.model.MeasuredWaveData
+import com.maciel.wavereaderkmm.utils.toDecimalString
 
 
 data class GraphLine(
@@ -148,6 +150,8 @@ fun Graph(
                         drawGridLines()
 
 
+                        drawXCoordinates(textMeasurer, selectedIndex, timeLabels, pointSpacing)
+                        drawYCoordinates(textMeasurer, selectedIndex, dataSets, maxValues, colors, units, size.height)
                         //drawYLabels(textMeasurer, maxValues, units)
 
                         if (isScrollable) drawContext.canvas.save()
@@ -170,8 +174,6 @@ fun Graph(
                         )
 
                         drawCoordinate(selectedIndex, dataPointCount, pointSpacing)
-                        drawXCoordinates(textMeasurer, selectedIndex, timeLabels, pointSpacing)
-                        drawYCoordinates(textMeasurer, selectedIndex, dataSets, maxValues, colors, units, size.height)
 
 
                         if (isScrollable) drawContext.canvas.restore()
@@ -182,8 +184,15 @@ fun Graph(
 
         Spacer(Modifier.height(12.dp))
 
-        if (selectedIndex != -1) {
-            DrawCoordinateKey(selectedIndex, lines, timeLabels)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (selectedIndex != -1) 50.dp else 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selectedIndex != -1) {
+                DrawCoordinateKey(selectedIndex, lines, timeLabels)
+            }
         }
 
         GraphLegend(lines)
@@ -209,7 +218,7 @@ fun DrawCoordinateKey(
                     fontSize = 12.sp
                 )
                 Text(
-                    "${line.values.getOrNull(selectedIndex) ?: "-"} ${line.unit}",
+                    "${line.values.getOrNull(selectedIndex)?.toDecimalString(3) ?: "-"} ${line.unit}",
                     color = line.color,
                     fontSize = 12.sp
                 )
