@@ -26,6 +26,7 @@ actual class LocationService(private val context: Context) {
         Geocoder(context, Locale.getDefault())
     }
 
+
     /**
      * Get current device location
      * Requires location permissions to be granted

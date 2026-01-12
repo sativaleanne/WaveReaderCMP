@@ -1,5 +1,6 @@
 package com.maciel.wavereaderkmm.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -29,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.maciel.wavereaderkmm.platform.LocationPermissionChecker
+import com.maciel.wavereaderkmm.platform.RequestLocationPermission
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 import com.maciel.wavereaderkmm.viewmodels.UiState
 import kotlinx.coroutines.launch
@@ -51,8 +54,11 @@ fun LocationSearchField(
 ) {
     var searchText by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var needsLocationPermission by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    val isLocationPermissionGranted = LocationPermissionChecker.isGrantedComposable()
 
     // Collect UIState
     val uiState by locationViewModel.uiState.collectAsState()
@@ -88,7 +94,26 @@ fun LocationSearchField(
     LaunchedEffect(uiErrorMessage) {
         uiErrorMessage?.let { errorMessage = it }
     }
-
+    // Handle permission request when needed
+    if (needsLocationPermission) {
+        println("DEBUG LocationSearchField: Requesting location permission")
+        RequestLocationPermission(
+            onPermissionGranted = {
+                println("DEBUG LocationSearchField: Permission granted")
+                needsLocationPermission = false
+                locationViewModel.getCurrentLocation()
+            },
+            onPermissionDenied = {
+                println("DEBUG LocationSearchField: Permission denied")
+                needsLocationPermission = false
+                errorMessage = "Location permission is required to use current location"
+            }
+        ) {
+            // Render a simple box to ensure the composable is in the tree
+            // The permission dialog will show automatically
+            Box(modifier = Modifier.size(0.dp))
+        }
+    }
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
@@ -172,7 +197,19 @@ fun LocationSearchField(
 
         // Current location button
         IconButton(
-            onClick = { locationViewModel.getCurrentLocation() },
+            onClick = {
+                println("DEBUG LocationSearchField: Button clicked, permission granted = $isLocationPermissionGranted")
+                // Use the permission status we checked in composable body
+                if (isLocationPermissionGranted) {
+                    // Permission already granted - get location directly
+                    println("DEBUG LocationSearchField: Getting location (permission already granted)")
+                    locationViewModel.getCurrentLocation()
+                } else {
+                    // Need to request permission
+                    println("DEBUG LocationSearchField: Setting needsLocationPermission = true")
+                    needsLocationPermission = true
+                }
+            },
             enabled = enabled && !isProcessing
         ) {
             Icon(Icons.Default.MyLocation, "Current location")

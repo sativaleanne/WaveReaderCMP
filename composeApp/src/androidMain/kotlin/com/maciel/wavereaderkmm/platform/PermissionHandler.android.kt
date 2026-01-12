@@ -4,6 +4,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -25,20 +29,25 @@ actual fun RequestLocationPermission(
         Manifest.permission.ACCESS_FINE_LOCATION
     )
 
+    var hasRequestedPermission by remember { mutableStateOf(false) }
+
     // Handle permission state changes
     LaunchedEffect(permissionState.status) {
+        println("DEBUG PermissionHandler: Status = ${permissionState.status}")
         when (permissionState.status) {
             is PermissionStatus.Granted -> {
+                println("DEBUG PermissionHandler: Permission GRANTED")
                 onPermissionGranted()
             }
             is PermissionStatus.Denied -> {
-                val denied = permissionState.status as PermissionStatus.Denied
-
-                if (!denied.shouldShowRationale) {
-                    // First time asking - launch permission request
+                if (!hasRequestedPermission) {
+                    // First time in this composable - request permission
+                    println("DEBUG PermissionHandler: Launching permission request")
+                    hasRequestedPermission = true
                     permissionState.launchPermissionRequest()
                 } else {
-                    // User denied previously - call denied callback
+                    // We already requested and user denied
+                    println("DEBUG PermissionHandler: User denied permission")
                     onPermissionDenied()
                 }
             }
@@ -54,7 +63,7 @@ actual fun RequestLocationPermission(
  */
 actual object LocationPermissionChecker {
     /**
-     * Check if location permission is granted (for use in Composables)
+     * Check if location permission is granted
      */
     @Composable
     actual fun isGrantedComposable(): Boolean {

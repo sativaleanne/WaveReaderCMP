@@ -42,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.maciel.wavereaderkmm.model.GraphDisplayOptions
+import com.maciel.wavereaderkmm.platform.LocationPermissionChecker
+import com.maciel.wavereaderkmm.platform.RequestLocationPermission
 import com.maciel.wavereaderkmm.ui.components.AlertConfirm
 import com.maciel.wavereaderkmm.ui.components.DropDownFilterGraphView
 import com.maciel.wavereaderkmm.ui.components.WaveDataCard
@@ -273,6 +275,27 @@ private fun BottomAppBarContent(
     // Collect location state
     val locationUiState by locationViewModel.uiState.collectAsState()
 
+    val isGranted = LocationPermissionChecker.isGrantedComposable()
+    var needsLocationPermission by remember { mutableStateOf(false) }
+
+    if (needsLocationPermission) {
+        RequestLocationPermission(
+            onPermissionGranted = {
+                needsLocationPermission = false
+                // Permission granted - now fetch location
+                scope.launch {
+                    isFetchingLocationForSave = true
+                    locationViewModel.getCurrentLocation()
+                }
+            },
+            onPermissionDenied = {
+                needsLocationPermission = false
+                // Handle denial
+                viewModel.setCurrentLocation("Unknown location", null)
+            }
+        ) { }
+    }
+
     // Handle save flow when location is ready
     LaunchedEffect(locationUiState, isFetchingLocationForSave) {
         if (!isFetchingLocationForSave) return@LaunchedEffect
@@ -372,11 +395,17 @@ private fun BottomAppBarContent(
                     Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(
                         onClick = {
-                            // Trigger location fetch and save
-                            scope.launch {
-                                isFetchingLocationForSave = true
-                                locationViewModel.getCurrentLocation()
+                            if (isGranted) {
+                                // Trigger location fetch and save
+                                scope.launch {
+                                    isFetchingLocationForSave = true
+
+                                    locationViewModel.getCurrentLocation()
+                                }
+                            } else {
+                                needsLocationPermission = true  // Trigger permission request
                             }
+
                         },
                         enabled = !isGuest &&
                             !uiState.isSaving &&

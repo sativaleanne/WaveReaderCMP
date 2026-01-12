@@ -7,6 +7,20 @@
     <!-- Include only if your app benefits from precise location access. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <uses-feature
+        android:name="android.hardware.location.gps"
+        android:required="false"/>
+    <uses-feature
+        android:name="android.hardware.location.network"
+        android:required="false"/>
+
+    <uses-feature android:name="android.hardware.sensor.accelerometer"
+        android:required="true" />
+    <uses-feature android:name="android.hardware.sensor.gyroscope"
+        android:required="true" />
+    <uses-feature android:name="android.hardware.sensor.magnetic_field"
+        android:required="true" />
+
 
 
     <application
