@@ -182,7 +182,7 @@ fun Graph(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(2.dp))
 
         Box(
             modifier = Modifier
@@ -208,7 +208,7 @@ fun DrawCoordinateKey(
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(top = 8.dp)
+        modifier = Modifier.padding(top=1.dp)
     ) {
         lines.forEach { line ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -232,7 +232,7 @@ fun DrawCoordinateKey(
 fun GraphLegend(lines: List<GraphLine>) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.padding(top = 8.dp)
+        modifier = Modifier.padding(top = 4.dp)
     ) {
         lines.forEach { line ->
             Row(verticalAlignment = Alignment.CenterVertically) {
