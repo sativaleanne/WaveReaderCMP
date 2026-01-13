@@ -1,35 +1,76 @@
-This is a Kotlin Multiplatform project targeting Android, iOS.
+# WaveReader
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-    folder is the appropriate location.
-
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
-
-### Build and Run Android Application
-
-To build and run the development version of the Android app, use the run configuration from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
-
-### Build and Run iOS Application
-
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+WaveReader is an Android app that measures and visualizes ocean wave conditions in real time using your phone’s built-in motion sensors. It features live wave tracking, historical data access, and wave API data—making it a powerful tool for surfers, sailors, and ocean enthusiasts.
 
 ---
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+## Features
+
+- **Real-Time Measurement**  
+  Calculates wave height, period, and direction using the phone’s accelerometer, gyroscope, and magnetometer.
+- **Interactive Graphs**  
+  View wave data in real-time with a scrollable and zoomable custom graph that supports toggling lines for height, period, direction, and forecast prediction.
+- **Location-Based Wave Data**  
+  Search for wave forecasts by zip code or map, powered by the Marine Weather API and Androids Geocoding.
+- **History & Export**  
+  Save your measurements, filter, and export past data as CSV or JSON.
+- **User Accounts**  
+  Create an account to access all full features like data history and export tools.
+
+---
+
+## User Experience
+
+WaveReader is designed for both casual users and experienced mariners:
+
+- **Record Tab**: Measures waves in real-time from your current location. Customize the graph with filter options.
+- **Search Tab**: Explore wave data anywhere using zip code or map search.
+- **History Page**: Review past sessions, filter by location or date, and view summary trends.
+
+---
+
+## Requirements
+
+- Android 8.0+
+- Device with:
+    - Accelerometer
+    - Gyroscope
+    - Magnetometer
+- Internet connection for API features and saving data
+- Firebase account for login features (optional)
+
+---
+
+## Core Technologies
+
+### Android & UI
+- **Kotlin**
+- **Jetpack Compose** – UI and Canvas-based graph rendering
+- **ViewModel + StateFlow** – Reactive architecture
+
+### Sensor & Signal Processing
+- **Android Sensor Framework** – Access motion sensors and orientation data
+
+### Location & Maps
+- **Google Maps SDK**
+- **Fused Location Provider**
+- **Android Geocoding API**
+
+### Networking & API
+- **kotlinx.serialization** – JSON parsing
+
+### Backend & Storage
+- **Firebase Authentication** – User login
+- **Cloud Firestore** – Save & load session history
+
+### Data Export
+- Built-in tools for CSV and JSON export via Android Storage Access Framework
+
+### Upcoming Features
+- iOS and Android Compatibility using Compose Multiplatform
+
+### Resourses
+
+- [NDBC Wave Calculations](https://www.ndbc.noaa.gov/wave.shtml)
+- [Marine Weather API](https://www.marineweatherapi.com/)
+- [Firebase Documentation](https://firebase.google.com/docs)

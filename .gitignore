@@ -4,6 +4,16 @@
 **/build/
 xcuserdata
 !src/**/build/
+
+# Keystore files
+*.keystore
+*.jks
+keystore.properties
+
+# Release artifacts
+*.apk
+*.aab
+
 local.properties
 .idea
 .DS_Store
