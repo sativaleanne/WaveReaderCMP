@@ -24,6 +24,7 @@ import kotlin.math.sqrt
  */
 data class HistoryUiState(
     val historyRecords: List<HistoryRecord> = emptyList(),
+    val filteredRecords: List<HistoryRecord> = emptyList(),
     val expandedItems: Set<String> = emptySet(),
     val isSelectionMode: Boolean = false,
     val selectedItems: Set<String> = emptySet(),
@@ -61,7 +62,10 @@ class HistoryViewModel(
             try {
                 val records = firestoreRepository.fetchHistoryRecords()
                 _uiState.value = UiState.Success(
-                    HistoryUiState(historyRecords = records)
+                    HistoryUiState(
+                        historyRecords = records,
+                        filteredRecords = records
+                    )
                 )
                 // Apply initial filters after loading
                 applyFilters()
@@ -94,6 +98,7 @@ class HistoryViewModel(
         // Get all records
         val allRecords = currentState.historyRecords
         AppLogger.d("HistoryViewModel", "Applying filters: $filter")
+        AppLogger.d("HistoryViewModel", "All records: ${allRecords.size}")
 
 
         // Apply date filters
@@ -130,9 +135,11 @@ class HistoryViewModel(
             SortOrder.LOCATION_NAME -> filtered.sortedBy { it.location }
         }
 
+        AppLogger.d("HistoryViewModel", "Filtered records: ${filtered.size}")
+
 
         // Update state with filtered records
-        updateSuccessState(currentState.copy(historyRecords = filtered))
+        updateSuccessState(currentState.copy(filteredRecords = filtered))
     }
 
     /**
@@ -148,7 +155,11 @@ class HistoryViewModel(
             try {
                 // Optimistic update: remove from UI immediately
                 val updatedRecords = currentState.historyRecords.filter { it.id != recordId }
-                updateSuccessState(currentState.copy(historyRecords = updatedRecords))
+                val updateFilteredRecords = currentState.filteredRecords.filter { it.id != recordId }
+                updateSuccessState(currentState.copy(
+                    historyRecords = updatedRecords,
+                    filteredRecords = updateFilteredRecords
+                ))
 
                 // Delete from backend
                 firestoreRepository.deleteHistoryRecord(recordId)
@@ -180,9 +191,13 @@ class HistoryViewModel(
                 val updatedRecords = currentState.historyRecords.filter {
                     it.id !in idsToDelete
                 }
+                val updatedFilteredRecords = currentState.filteredRecords.filter {
+                    it.id !in idsToDelete
+                }
                 updateSuccessState(
                     currentState.copy(
                         historyRecords = updatedRecords,
+                        filteredRecords = updatedFilteredRecords,
                         selectedItems = emptySet(),
                         isSelectionMode = false
                     )
@@ -257,7 +272,7 @@ class HistoryViewModel(
      */
     fun selectAll() {
         getCurrentState()?.let { currentState ->
-            val allIds = currentState.historyRecords.map { it.id }.toSet()
+            val allIds = currentState.filteredRecords.map { it.id }.toSet()
             updateSuccessState(currentState.copy(selectedItems = allIds))
         }
     }
@@ -348,7 +363,7 @@ class HistoryViewModel(
         val currentState = getCurrentState() ?: return emptyList()
         val selectedIds = currentState.selectedItems
 
-        return currentState.historyRecords.filter { record ->
+        return currentState.filteredRecords.filter { record ->
             record.id in selectedIds
         }
     }
@@ -359,7 +374,7 @@ class HistoryViewModel(
      * Export respects current filters
      */
     fun getAllRecords(): List<HistoryRecord> {
-        return getCurrentState()?.historyRecords ?: emptyList()
+        return getCurrentState()?.filteredRecords ?: emptyList()
     }
 
     /**

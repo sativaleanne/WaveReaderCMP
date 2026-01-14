@@ -171,7 +171,7 @@ actual fun HistoryScreen(
                     val historyState = state.data
 
                     // Show empty state if no records after filtering
-                    if (historyState.historyRecords.isEmpty()) {
+                    if (historyState.filteredRecords.isEmpty()) {
                         EmptyHistoryView(
                             filterState = historyState.filterState,
                             onClearFilters = {
@@ -188,7 +188,7 @@ actual fun HistoryScreen(
 
                             // History list
                             HistoryList(
-                                records = historyState.historyRecords,
+                                records = historyState.filteredRecords,
                                 expandedItems = historyState.expandedItems,
                                 isSelectionMode = historyState.isSelectionMode,
                                 selectedItems = historyState.selectedItems,
@@ -202,7 +202,7 @@ actual fun HistoryScreen(
                                 showDialog = showExportDialog,
                                 isSelectionMode = historyState.isSelectionMode,
                                 selectedCount = historyState.selectedItems.size,
-                                allVisibleCount = historyState.historyRecords.size,
+                                allVisibleCount = historyState.filteredRecords.size,
                                 onDismiss = { showExportDialog = false },
 
                                 // trigger file pickers
