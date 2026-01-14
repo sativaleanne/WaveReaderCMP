@@ -193,9 +193,10 @@ fun Graph(
             if (selectedIndex != -1) {
                 DrawCoordinateKey(selectedIndex, lines, timeLabels)
             }
+            else {
+                GraphLegend(lines)
+            }
         }
-
-        GraphLegend(lines)
     }
 }
 
