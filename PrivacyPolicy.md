@@ -176,7 +176,7 @@ You have the right to:
 - [IF FIREBASE: Cloud-synced data requires account deletion request]
 
 **Option 4: Request Account Deletion**
-- Email us at reeds.n.keys@gmail.com
+- Email us at reeds.n.keys.repair@gmail.com
 - Subject: "Data Deletion Request"
 - Include your account email
 - We will delete your data within 30 days
@@ -238,7 +238,7 @@ If you are located in the EEA, you have the following rights:
 - Right to object to processing
 - Right to withdraw consent
 
-To exercise these rights, contact us at reedsnkeys@gmail.com.
+To exercise these rights, contact us at reeds.n.keys.repair@gmail.com.
 
 ---
 
@@ -250,7 +250,7 @@ If you are a California resident, you have additional rights under the Californi
 - Right to opt-out of the sale of personal information (Note: We do not sell personal information)
 - Right to non-discrimination for exercising your rights
 
-To exercise these rights, contact us at reedsnkeys@gmail.com.
+To exercise these rights, contact us at reeds.n.keys.repair@gmail.com.
 
 ---
 
@@ -258,8 +258,8 @@ To exercise these rights, contact us at reedsnkeys@gmail.com.
 
 If you have questions about this Privacy Policy or our data practices, please contact us:
 
-**Email:** reedsnkeys@gmail.com  
-**Developer Name:** Reeds and Keys  
+**Email:** reeds.n.keys.repair@gmail.com  
+**Developer Name:** Maciel  
 **Website:** https://www.sativam-portfolio.com/
 
 **Response Time:** We aim to respond to all inquiries within 7 business days.
