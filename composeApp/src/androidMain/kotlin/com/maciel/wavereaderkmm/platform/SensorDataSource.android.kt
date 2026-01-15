@@ -70,6 +70,7 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
 
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> {
+                AppLogger.i("Info", "Accelerometer: ${event.values.toList()}")
                 System.arraycopy(event.values, 0, accelerometerReading, 0, accelerometerReading.size)
 
                 val earthAcceleration = filterAccelerationData(
@@ -91,6 +92,8 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
             }
 
             Sensor.TYPE_GYROSCOPE -> {
+                AppLogger.i("Info", "Gyroscope: ${event.values.toList()}")
+
                 // Calculate time since last gyro reading
                 val gyroscopeDt = if (lastGyroTimestamp != 0L) {
                     (event.timestamp - lastGyroTimestamp) / 1_000_000_000f
@@ -121,6 +124,7 @@ actual class SensorDataSource(private val context: Context) : SensorEventListene
             }
 
             Sensor.TYPE_MAGNETIC_FIELD -> {
+                AppLogger.i("Info", "Magnetometer: ${event.values.toList()}")
                 System.arraycopy(event.values, 0, magnetometerReading, 0, magnetometerReading.size)
             }
         }
