@@ -1,6 +1,6 @@
 # Privacy Policy for WaveReader
 
-**Last Updated:** 01/12/2026
+**Last Updated:** 01/14/2026
 
 ## Introduction
 
@@ -176,7 +176,7 @@ You have the right to:
 - [IF FIREBASE: Cloud-synced data requires account deletion request]
 
 **Option 4: Request Account Deletion**
-- Email us at reeds.n.keys.repair@gmail.com
+- Email at maciels.business@gmail.com
 - Subject: "Data Deletion Request"
 - Include your account email
 - We will delete your data within 30 days
@@ -250,7 +250,7 @@ If you are a California resident, you have additional rights under the Californi
 - Right to opt-out of the sale of personal information (Note: We do not sell personal information)
 - Right to non-discrimination for exercising your rights
 
-To exercise these rights, contact us at reeds.n.keys.repair@gmail.com.
+To exercise these rights, contact us at maciels.business@gmail.com.
 
 ---
 
@@ -258,7 +258,7 @@ To exercise these rights, contact us at reeds.n.keys.repair@gmail.com.
 
 If you have questions about this Privacy Policy or our data practices, please contact us:
 
-**Email:** reeds.n.keys.repair@gmail.com  
+**Email:** maciels.business@gmail.com  
 **Developer Name:** Maciel  
 **Website:** https://www.sativam-portfolio.com/
 
@@ -282,4 +282,4 @@ By using Wave Reader, you consent to this Privacy Policy and agree to its terms.
 ---
 
 **Version:** 1.0  
-**Effective Date:** 01/12/2026
+**Effective Date:** 01/14/2026
