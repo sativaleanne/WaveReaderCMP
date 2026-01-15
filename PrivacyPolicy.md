@@ -238,7 +238,7 @@ If you are located in the EEA, you have the following rights:
 - Right to object to processing
 - Right to withdraw consent
 
-To exercise these rights, contact us at reeds.n.keys.repair@gmail.com.
+To exercise these rights, contact us at maciels.business@gmail.com.
 
 ---
 
