@@ -1,6 +1,7 @@
 package com.maciel.wavereaderkmm.ui.main
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,11 +35,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.maciel.wavereaderkmm.model.ApiVariable
 import com.maciel.wavereaderkmm.model.WaveApiQuery
 import com.maciel.wavereaderkmm.model.WaveDataResponse
+import com.maciel.wavereaderkmm.platform.AppLogger
 import com.maciel.wavereaderkmm.platform.LocationData
 import com.maciel.wavereaderkmm.platform.MapView
 import com.maciel.wavereaderkmm.ui.components.LoadingView
@@ -48,9 +51,6 @@ import com.maciel.wavereaderkmm.ui.graph.ServiceGraph
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
 import com.maciel.wavereaderkmm.viewmodels.ServiceViewModel
 import com.maciel.wavereaderkmm.viewmodels.UiState
-import org.jetbrains.compose.resources.stringResource
-import wavereaderkmm.composeapp.generated.resources.Res
-import wavereaderkmm.composeapp.generated.resources.loading_failed_text
 
 /**
  * Search Screen for retrieving wave data by location
@@ -70,12 +70,13 @@ fun SearchDataScreen(
 
     // Local UI state
     var isMapExpanded by remember { mutableStateOf(false) }
+    var columnScrollingEnabled by remember { mutableStateOf(true) }
 
     Column(
         modifier = Modifier
             .padding(16.dp)
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState(), columnScrollingEnabled),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -133,7 +134,14 @@ fun SearchDataScreen(
             isExpanded = isMapExpanded,
             onToggleExpanded = { isMapExpanded = !isMapExpanded },
             currentLocation = coordinates,
-            displayText = displayLocation
+            onMapTouched = {
+                columnScrollingEnabled = false
+                AppLogger.d("SearchDataScreen", "Map touched")
+            },
+            onMapOff = {
+                columnScrollingEnabled = true
+                AppLogger.d("SearchDataScreen", "Map released")
+            }
         )
 
         SearchButton(
@@ -161,7 +169,7 @@ fun SearchDataScreen(
             }
         )
 
-        // Wave data display (ServiceViewModel already uses UiState correctly)
+        // Wave data display
         when (val state = serviceUiState) {
             is UiState.Loading -> LoadingView("Loading data...")
 
@@ -245,7 +253,8 @@ fun ExpandableMapCard(
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
     currentLocation: LocationData?,
-    displayText: String
+    onMapTouched: () -> Unit,
+    onMapOff: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -275,6 +284,19 @@ fun ExpandableMapCard(
                     .fillMaxWidth()
                     .height(if (isExpanded) 320.dp else 120.dp)
                     .padding(top = 8.dp)
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.changes.any { it.isConsumed }) {
+                                    onMapOff()
+                                } else {
+                                    onMapTouched()
+                                }
+                            }
+                        }
+                    }
+
             ) {
                 MapView(
                     locationViewModel = locationViewModel,
@@ -366,7 +388,7 @@ fun ErrorView(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = message ?: stringResource(Res.string.loading_failed_text),
+            text = message ?: ("Unknown error"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(bottom = 16.dp)
