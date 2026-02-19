@@ -64,10 +64,6 @@ fun WaveReaderApp() {
         ServiceViewModel(waveApiRepository)
     }
 
-    val historyViewModel = viewModel {
-        HistoryViewModel(firestoreRepository)
-    }
-
     // Track guest mode
     var isGuest by remember { mutableStateOf(false) }
 
@@ -161,6 +157,10 @@ fun WaveReaderApp() {
 
         // History Screen
         composable("history") {
+            val historyViewModel = viewModel {
+                HistoryViewModel(firestoreRepository)
+            }
+
             HistoryScreen(
                 viewModel = historyViewModel,
                 locationViewModel = locationViewModel,
