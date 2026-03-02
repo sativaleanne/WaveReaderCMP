@@ -3,20 +3,26 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    kotlin("plugin.serialization")
-    id("com.google.gms.google-services")
+    alias(libs.plugins.androidMultiplatformLibrary)
 }
 
 kotlin {
-    androidTarget {
+    androidLibrary {
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        namespace = "com.maciel.wavereaderkmm.composeapp"
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget = JvmTarget.JVM_17
+        }
+        androidResources {
+            enable = true
+        }
+        withHostTest {
+            isIncludeAndroidResources = true
         }
     }
-
 
     listOf(
         iosX64(),
@@ -30,16 +36,17 @@ kotlin {
         }
     }
 
+    jvm()
+
     sourceSets {
         commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
-            implementation(compose.components.uiToolingPreview)
-            implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
+            implementation(libs.runtime)
+            implementation(libs.foundation)
+            implementation(libs.material3)
+            implementation(libs.ui)
+            implementation(libs.components.resources)
+            implementation(libs.ui.tooling.preview)
+            implementation(libs.material.icons.extended)
             implementation(libs.ui.backhandler)
 
             // Navigation
@@ -65,7 +72,6 @@ kotlin {
 
         androidMain.dependencies {
             implementation(libs.ktor.client.android)
-            implementation(libs.androidx.activity.compose.v182)
 
             implementation(libs.material.icons.core)
             implementation(libs.androidx.material.icons.core)
@@ -91,81 +97,6 @@ kotlin {
             implementation(libs.ktor.client.darwin)
         }
     }
-}
-
-val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = Properties()
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(keystorePropertiesFile.inputStream())
-}
-
-android {
-    namespace = "com.maciel.wavereaderkmm"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-
-    signingConfigs {
-        create("release") {
-            if (keystorePropertiesFile.exists()) {
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-            }
-        }
-    }
-
-    defaultConfig {
-        applicationId = "com.maciel.wavereaderkmm"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 4
-        versionName = "1.0.3"
-
-        // Load properties
-        val properties = Properties()
-        val localPropertiesFile = rootProject.file("local.properties")
-
-        if (localPropertiesFile.exists()) {
-            properties.load(localPropertiesFile.inputStream())
-        }
-
-        // Get API key (with fallback for CI/CD)
-        val mapsApiKey = properties.getProperty("MAPS_API_KEY", "")
-
-        // Add to manifest placeholders
-        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
-
-        // Optional: Add to BuildConfig for access in code
-        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
-
-    }
-    buildFeatures {
-        buildConfig = true
-    }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            signingConfig = signingConfigs.getByName("release")
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-}
-
-dependencies {
-    debugImplementation(compose.uiTooling)
 }
 
 

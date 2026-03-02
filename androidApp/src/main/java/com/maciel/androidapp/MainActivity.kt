@@ -1,4 +1,4 @@
-package com.maciel.wavereaderkmm
+package com.maciel.androidapp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import com.maciel.wavereaderkmm.App
 import com.maciel.wavereaderkmm.platform.initializeExport
 
 class MainActivity : ComponentActivity() {
@@ -14,7 +15,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         initializeExport(this)
-
         setContent {
             App()
         }

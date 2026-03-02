@@ -6,7 +6,9 @@ plugins {
     alias(libs.plugins.composeMultiplatform) apply false
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
+    alias(libs.plugins.androidMultiplatformLibrary) apply false
+    alias(libs.plugins.kotlinJvm) apply false
 
-    kotlin("plugin.serialization") version "1.9.21" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.10" apply false
     id("com.google.gms.google-services") version "4.4.4" apply false
 }
