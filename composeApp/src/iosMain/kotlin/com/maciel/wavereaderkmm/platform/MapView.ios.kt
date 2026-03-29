@@ -101,7 +101,7 @@ class MapTapHandler(
     /**
      * @ObjCAction exposes this as an Obj-C selector ("handleTap:").
      * Calls locationViewModel.setLocation()
-     * onMapClick calls — keeping both platforms in sync.
+     * onMapClick calls
      */
     @OptIn(BetaInteropApi::class)
     @Suppress("unused")

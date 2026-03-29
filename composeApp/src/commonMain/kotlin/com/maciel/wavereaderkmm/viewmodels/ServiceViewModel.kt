@@ -27,7 +27,24 @@ class ServiceViewModel(
     /**
      * Fetch wave data from API
      *
-     * @param query Wave API query with location and parameters
+     * private var fetchJob: Job? = null
+     *
+     * fun fetchWaveData(query: WaveApiQuery) {
+     *     fetchJob?.cancel() // cancel any in-flight request before starting new one
+     *     fetchJob = viewModelScope.launch {
+     *         _serviceUiState.value = UiState.Loading
+     *         _serviceUiState.value = try {
+     *             val data = waveApiRepository.getWaveApiData(query)
+     *             UiState.Success(data)
+     *         } catch (e: CancellationException) {
+     *             throw e
+     *         } catch (e: IOException) {
+     *             UiState.Error("Network error: ${e.message}", exception = e)
+     *         } catch (e: Exception) {
+     *             UiState.Error("Unexpected error: ${e.message}", exception = e)
+     *         }
+     *     }
+     * }
      */
     fun fetchWaveData(query: WaveApiQuery) {
         viewModelScope.launch {
