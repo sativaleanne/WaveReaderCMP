@@ -1,29 +1,29 @@
 package com.maciel.wavereaderkmm.platform
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import com.maciel.wavereaderkmm.viewmodels.LocationViewModel
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCAction
+import kotlinx.cinterop.useContents
 import platform.CoreLocation.CLLocationCoordinate2DMake
 import platform.MapKit.MKCoordinateRegionMakeWithDistance
 import platform.MapKit.MKMapView
 import platform.MapKit.MKPointAnnotation
+import platform.UIKit.UITapGestureRecognizer
+import platform.darwin.NSObject
 
 /**
- * iOS implementation using MapKit
+ * iOS implementation using MapKit embedded via UIKitView.
  *
- * Features:
- * - Interactive MapKit map
- * - Shows user's current location (blue dot via showsUserLocation)
+ * - Blue dot for user location
  * - Marker at selected position
- * - Tap to select location
- * - Camera animation
- *
- * Requirements:
- * - Location permissions (NSLocationWhenInUseUsageDescription in Info.plist)
- * - MapKit framework (automatically available on iOS)
+ * - Tap anywhere to call locationViewModel.setLocation()
+ * - Camera animates to new coordinate
  */
 @OptIn(ExperimentalForeignApi::class)
 @Composable
@@ -32,48 +32,90 @@ actual fun MapView(
     coordinates: LocationData?,
     modifier: Modifier
 ) {
-    val currentAnnotation = remember { mutableListOf<MKPointAnnotation>() }
+
+    val tapHandler = remember { MapTapHandler(locationViewModel) }
 
     UIKitView(
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
         factory = {
             MKMapView().apply {
+                setTranslatesAutoresizingMaskIntoConstraints(false)
                 setShowsUserLocation(true)
                 setZoomEnabled(true)
                 setScrollEnabled(true)
                 setPitchEnabled(false)
                 setRotateEnabled(false)
+
+                tapHandler.attach(this)
             }
         },
         update = { mapView ->
             coordinates?.let { location ->
-                val coordinate = CLLocationCoordinate2DMake(
+                val targetCoordinate = CLLocationCoordinate2DMake(
                     location.latitude,
                     location.longitude
                 )
 
-                // Remove old annotations
-                if (currentAnnotation.isNotEmpty()) {
-                    mapView.removeAnnotations(currentAnnotation)
-                    currentAnnotation.clear()
+                val existing = mapView.annotations
+                    .filterIsInstance<MKPointAnnotation>()
+                mapView.removeAnnotations(existing)
+
+                val annotation = MKPointAnnotation().apply {
+                    setCoordinate(targetCoordinate)
+                    setTitle("Selected Location")
+                    setSubtitle("${location.latitude}, ${location.longitude}")
                 }
-
-                // Add new annotation
-                val annotation = MKPointAnnotation()
-                annotation.setCoordinate(coordinate)
-                annotation.setTitle("Selected Location")
-
-                currentAnnotation.add(annotation)
                 mapView.addAnnotation(annotation)
 
                 // Animate camera
                 val region = MKCoordinateRegionMakeWithDistance(
-                    coordinate,
-                    10000.0,
-                    10000.0
+                    targetCoordinate,
+                    10_000.0,
+                    10_000.0
                 )
                 mapView.setRegion(region, animated = true)
             }
         }
     )
+}
+
+/**
+ * Handles tap-to-select coordinate conversion.
+ */
+@OptIn(ExperimentalForeignApi::class)
+class MapTapHandler(
+    private val locationViewModel: LocationViewModel
+) : NSObject() {
+
+    private var mapView: MKMapView? = null
+
+    fun attach(mapView: MKMapView) {
+        this.mapView = mapView
+        val recognizer = UITapGestureRecognizer(
+            target = this,
+            action = platform.objc.sel_registerName("handleTap:")
+        )
+        mapView.addGestureRecognizer(recognizer)
+    }
+
+    /**
+     * @ObjCAction exposes this as an Obj-C selector ("handleTap:").
+     * Calls locationViewModel.setLocation()
+     * onMapClick calls
+     */
+    @OptIn(BetaInteropApi::class)
+    @Suppress("unused")
+    @ObjCAction
+    fun handleTap(recognizer: UITapGestureRecognizer) {
+        val mapView = mapView ?: return
+        val point = recognizer.locationInView(mapView)
+        val coordinate = mapView.convertPoint(point, toCoordinateFromView = mapView)
+
+        coordinate.useContents {
+            locationViewModel.setLocation(
+                latitude = latitude,
+                longitude = longitude
+            )
+        }
+    }
 }

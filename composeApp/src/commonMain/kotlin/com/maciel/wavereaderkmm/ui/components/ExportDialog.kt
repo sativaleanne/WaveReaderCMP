@@ -20,13 +20,6 @@ import androidx.compose.ui.unit.dp
  *
  * Reusable dialog for exporting data in CSV or JSON format.
  * Handles both "export all" and "export selected" scenarios.
- *
- * @param isVisible Whether the dialog is currently shown
- * @param recordCount Number of records that will be exported
- * @param exportType Description of what's being exported ("All visible records", "Selected records", etc.)
- * @param onDismiss Called when dialog should be dismissed
- * @param onExportCsv Called when user chooses CSV export
- * @param onExportJson Called when user chooses JSON export
  */
 @Composable
 fun ExportDialog(
@@ -108,16 +101,6 @@ fun ExportDialog(
  *
  * This is the main component you'll use in HistoryScreen.
  * It automatically determines whether to export all or selected records.
- *
- * @param showDialog Whether to show the dialog
- * @param isSelectionMode Whether the screen is in selection mode
- * @param selectedCount Number of selected records
- * @param allVisibleCount Total number of visible records (after filters)
- * @param onDismiss Called when dialog is dismissed
- * @param onExportSelectedCsv Called to export selected records as CSV
- * @param onExportSelectedJson Called to export selected records as JSON
- * @param onExportAllCsv Called to export all visible records as CSV
- * @param onExportAllJson Called to export all visible records as JSON
  */
 @Composable
 fun SmartExportDialog(
